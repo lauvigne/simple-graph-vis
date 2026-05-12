@@ -5,6 +5,14 @@ Application de couverture applicative avec deux parties séparées:
 - `load-data/index.html` pour importer les classeurs Excel, construire le graphe typé et exporter `storage-data.json`
 - `dataviz/` pour relire `storage-data.json`, recalculer les candidats côté client et afficher le dashboard Angular
 
+La page `load-data/index.html` utilise SheetJS via CDN pour lire les fichiers Excel:
+
+```html
+https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js
+```
+
+Elle doit donc avoir accès à ce CDN au moment du chargement de la page, sauf si le script est remplacé par une copie locale.
+
 ## Utilisation
 
 1. Ouvrir `load-data/index.html` dans un navigateur moderne.
