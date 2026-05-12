@@ -146,6 +146,14 @@ function cellRefToColumnIndex(ref) {
   return index - 1;
 }
 
+function attachRowNumber(record, rowNumber) {
+  Object.defineProperty(record, "__rowNumber", {
+    value: rowNumber,
+    enumerable: false,
+  });
+  return record;
+}
+
 function cellValue(cell, sharedStrings) {
   const type = cell.getAttribute("t");
   const formulaValue = cell.getElementsByTagName("v")[0];
@@ -187,13 +195,14 @@ function sheetXmlToRows(xmlText, sharedStrings) {
   const rows = rawRows.slice();
   const headers = rows.shift().map((value) => String(value ?? "").trim());
   const data = rows
-    .filter((row) => row.some((value) => String(value ?? "").trim() !== ""))
-    .map((row) => {
+    .map((row, index) => ({ row, rowNumber: index + 2 }))
+    .filter(({ row }) => row.some((value) => String(value ?? "").trim() !== ""))
+    .map(({ row, rowNumber }) => {
       const record = {};
       headers.forEach((header, index) => {
         record[header] = row[index] ?? "";
       });
-      return record;
+      return attachRowNumber(record, rowNumber);
     });
   return { headers, rows: data, rawRows };
 }

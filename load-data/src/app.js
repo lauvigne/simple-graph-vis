@@ -107,7 +107,6 @@ async function rebuildFromWorkbooks(workbooks) {
     renderSummary(state.workbooks, summary);
     setStatus(`Import réussi: ${state.workbooks.length} fichier(s)`, "good");
   } catch (error) {
-    console.error(error);
     setStatus("Erreur d'import", "warn");
     els.warnings.innerHTML = `<div class="warning-item">${escapeHtml(error.message || String(error))}</div>`;
   }

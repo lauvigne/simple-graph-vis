@@ -31,12 +31,17 @@ function rowsFromHeaderRow(rawRows, headerRow = 1) {
   const headers = rowToHeaders(rawRows[headerIndex]);
   const rows = rawRows
     .slice(headerIndex + 1)
-    .filter((row) => row.some((value) => String(value ?? "").trim() !== ""))
-    .map((row) => {
+    .map((row, index) => ({ row, rowNumber: headerIndex + index + 2 }))
+    .filter(({ row }) => row.some((value) => String(value ?? "").trim() !== ""))
+    .map(({ row, rowNumber }) => {
       const record = {};
       headers.forEach((header, index) => {
         if (!header) return;
         record[header] = row[index] ?? "";
+      });
+      Object.defineProperty(record, "__rowNumber", {
+        value: rowNumber,
+        enumerable: false,
       });
       return record;
     });
@@ -61,6 +66,51 @@ function formatColumnAliases(columnSpecs) {
   return columnSpecs
     .map((aliases) => aliases.join(" | "))
     .join(", ");
+}
+
+function columnName(index) {
+  let value = index + 1;
+  let name = "";
+  while (value > 0) {
+    const remainder = (value - 1) % 26;
+    name = String.fromCharCode(65 + remainder) + name;
+    value = Math.floor((value - 1) / 26);
+  }
+  return name;
+}
+
+function rowNumber(row, fallback) {
+  return Number(row.__rowNumber ?? fallback);
+}
+
+function safeCellText(value) {
+  try {
+    return String(value ?? "").trim();
+  } catch (error) {
+    return `[unreadable value: ${error instanceof Error ? error.message : String(error)}]`;
+  }
+}
+
+function rowCellSummary(row, headers, excelRowNumber) {
+  const cells = headers
+    .map((header, index) => ({ header, index, text: safeCellText(row[header]) }))
+    .filter(({ header, text }) => header && text !== "")
+    .slice(0, 12)
+    .map(({ header, index, text }) => {
+      const truncated = text.length > 120 ? `${text.slice(0, 117)}...` : text;
+      return `${columnName(index)}${excelRowNumber} ${header}="${truncated}"`;
+    });
+  return cells.length ? cells.join("; ") : "(no non-empty configured cells)";
+}
+
+function wrapRowError(error, { workbookName, sheet, row, rowIndex, phase }) {
+  const excelRowNumber = rowNumber(row, rowIndex + 2);
+  const cause = error instanceof Error ? error.message : String(error);
+  return new Error([
+    `Error while ${phase} in workbook "${workbookName}", sheet "${sheet.name}", row ${excelRowNumber}.`,
+    `Cells: ${rowCellSummary(row, sheet.headers, excelRowNumber)}.`,
+    `Cause: ${cause}`,
+  ].join(" "));
 }
 
 function parseBusinessCapabilityPath(value) {
@@ -172,10 +222,15 @@ function ingestHierarchySheet(builder, workbookName, sheet, spec, warnings) {
   }
 
   for (const [rowIndex, row] of sheet.rows.entries()) {
-    const meta = { sourceWorkbook: workbookName, sourceSheet: sheet.name, rowIndex: rowIndex + 2 };
-    const pathValues = pathHeaders.map((header) => (header ? String(row[header] ?? "").trim() : "")).filter(Boolean);
-    if (pathValues.length) {
-      builder.ensureHierarchyPath(spec.nodeKind ?? "businessCapacity", pathValues, meta);
+    try {
+      const excelRowNumber = rowNumber(row, rowIndex + 2);
+      const meta = { sourceWorkbook: workbookName, sourceSheet: sheet.name, rowIndex: excelRowNumber };
+      const pathValues = pathHeaders.map((header) => (header ? String(row[header] ?? "").trim() : "")).filter(Boolean);
+      if (pathValues.length) {
+        builder.ensureHierarchyPath(spec.nodeKind ?? "businessCapacity", pathValues, meta);
+      }
+    } catch (error) {
+      throw wrapRowError(error, { workbookName, sheet, row, rowIndex, phase: "ingesting hierarchy row" });
     }
   }
 }
@@ -226,32 +281,37 @@ function ingestMappingSheet(builder, workbookName, sheet, spec, warnings) {
   }
 
   for (const [rowIndex, row] of sheet.rows.entries()) {
-    const meta = { sourceWorkbook: workbookName, sourceSheet: sheet.name, rowIndex: rowIndex + 2 };
-    const applicationCode = applicationCodeHeader ? String(row[applicationCodeHeader] ?? "").trim() : "";
-    const applicationName = applicationNameHeader ? String(row[applicationNameHeader] ?? "").trim() : "";
-    let applicationLabel = applicationHeader ? String(row[applicationHeader] ?? "").trim() : "";
-    if (!applicationLabel && applicationName) applicationLabel = applicationName;
-    if (!applicationLabel && applicationCode) applicationLabel = applicationCode;
-    if (!applicationLabel && !applicationCode) continue;
+    try {
+      const excelRowNumber = rowNumber(row, rowIndex + 2);
+      const meta = { sourceWorkbook: workbookName, sourceSheet: sheet.name, rowIndex: excelRowNumber };
+      const applicationCode = applicationCodeHeader ? String(row[applicationCodeHeader] ?? "").trim() : "";
+      const applicationName = applicationNameHeader ? String(row[applicationNameHeader] ?? "").trim() : "";
+      let applicationLabel = applicationHeader ? String(row[applicationHeader] ?? "").trim() : "";
+      if (!applicationLabel && applicationName) applicationLabel = applicationName;
+      if (!applicationLabel && applicationCode) applicationLabel = applicationCode;
+      if (!applicationLabel && !applicationCode) continue;
 
-    const entityLabel = spec.entityValue ? String(spec.entityValue).trim() : (entityHeader ? String(row[entityHeader] ?? "").trim() : "");
-    const appNode = builder.ensureApplication(applicationLabel || applicationCode, {
-      ...meta,
-      nodeId: applicationCode || applicationLabel,
-      entity: entityLabel,
-      applicationCode,
-      applicationName,
-    });
+      const entityLabel = spec.entityValue ? String(spec.entityValue).trim() : (entityHeader ? String(row[entityHeader] ?? "").trim() : "");
+      const appNode = builder.ensureApplication(applicationLabel || applicationCode, {
+        ...meta,
+        nodeId: applicationCode || applicationLabel,
+        entity: entityLabel,
+        applicationCode,
+        applicationName,
+      });
 
-    if (entityLabel) {
-      const entityNode = builder.ensureEntity(entityLabel, meta);
-      const existing = builder.graph.getOutgoing(appNode.key, "belongs_to").some((edge) => edge.target === entityNode.key);
-      if (!existing) builder.graph.addEdge(appNode.key, entityNode.key, "belongs_to", meta);
-    }
+      if (entityLabel) {
+        const entityNode = builder.ensureEntity(entityLabel, meta);
+        const existing = builder.graph.getOutgoing(appNode.key, "belongs_to").some((edge) => edge.target === entityNode.key);
+        if (!existing) builder.graph.addEdge(appNode.key, entityNode.key, "belongs_to", meta);
+      }
 
-    for (const targetNode of targetNodesFromRow(builder, row, spec, meta, warnings)) {
-      const existing = builder.graph.getOutgoing(appNode.key, "mapped_to").some((edge) => edge.target === targetNode.key);
-      if (!existing) builder.graph.addEdge(appNode.key, targetNode.key, "mapped_to", meta);
+      for (const targetNode of targetNodesFromRow(builder, row, spec, meta, warnings)) {
+        const existing = builder.graph.getOutgoing(appNode.key, "mapped_to").some((edge) => edge.target === targetNode.key);
+        if (!existing) builder.graph.addEdge(appNode.key, targetNode.key, "mapped_to", meta);
+      }
+    } catch (error) {
+      throw wrapRowError(error, { workbookName, sheet, row, rowIndex, phase: "ingesting mapping row" });
     }
   }
 }
