@@ -13,6 +13,11 @@ export const defaultConfig = {
         ["Business Capability (L2)"],
         ["Business Capability (L3)"],
       ],
+      pathCodeColumns: [
+        [],
+        ["Business Capability (L2) long name"],
+        ["Business Capability (L3) long name"],
+      ],
     },
   ],
   mappingSheets: [

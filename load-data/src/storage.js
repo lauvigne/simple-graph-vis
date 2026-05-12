@@ -1,12 +1,16 @@
 import { TypedGraph } from "./graph.js";
 
 function compactMeta(node) {
-  if (node.kind !== "application") return undefined;
   const meta = node.meta ?? {};
   const compact = {};
-  if (meta.applicationCode) compact.applicationCode = meta.applicationCode;
-  if (meta.applicationName) compact.applicationName = meta.applicationName;
-  if (meta.entity) compact.entity = meta.entity;
+  if (node.kind === "application") {
+    if (meta.applicationCode) compact.applicationCode = meta.applicationCode;
+    if (meta.applicationName) compact.applicationName = meta.applicationName;
+    if (meta.entity) compact.entity = meta.entity;
+  }
+  if (node.kind === "businessCapacity" && meta.code) {
+    compact.code = meta.code;
+  }
   return Object.keys(compact).length ? compact : undefined;
 }
 

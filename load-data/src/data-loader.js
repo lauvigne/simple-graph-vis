@@ -113,7 +113,59 @@ function wrapRowError(error, { workbookName, sheet, row, rowIndex, phase }) {
   ].join(" "));
 }
 
+function extractLeadingCode(value) {
+  const text = String(value ?? "").trim();
+  return text.match(/^(\d+(?:\.\d+)*)\s+/)?.[1] ?? "";
+}
+
+function codeAtLevel(code, levelIndex) {
+  const parts = String(code ?? "").split(".").filter(Boolean);
+  if (!parts.length || parts.length <= levelIndex) return "";
+  return parts.slice(0, levelIndex + 1).join(".");
+}
+
+function pathEntriesFromLabels(labels, deepestCode = "") {
+  return labels.map((label, index) => ({
+    label,
+    code: codeAtLevel(deepestCode, index),
+  }));
+}
+
 function parseBusinessCapabilityPath(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return [];
+  const code = extractLeadingCode(text);
+  const withoutCode = text.replace(/^\d+(?:\.\d+)*\s+/, "").trim();
+  const labels = withoutCode.includes(" / ")
+    ? withoutCode.split(" / ").map((part) => part.trim()).filter(Boolean)
+    : [withoutCode];
+  return pathEntriesFromLabels(labels, code);
+}
+
+function normalizePathEntry(value) {
+  if (typeof value === "object" && value !== null) {
+    return {
+      label: String(value.label ?? "").trim(),
+      code: String(value.code ?? "").trim(),
+    };
+  }
+  return {
+    label: String(value ?? "").trim(),
+    code: "",
+  };
+}
+
+function deepestCodeForRow(row, codeHeaders) {
+  for (let index = codeHeaders.length - 1; index >= 0; index--) {
+    const header = codeHeaders[index];
+    if (!header) continue;
+    const code = extractLeadingCode(row[header]);
+    if (code) return code;
+  }
+  return "";
+}
+
+function parseBusinessCapabilityPathLegacy(value) {
   const text = String(value ?? "").trim();
   if (!text) return [];
   const withoutCode = text.replace(/^\d+(?:\.\d+)*\s+/, "").trim();
@@ -174,11 +226,16 @@ class GraphBuilder {
     let currentParentKey = parentKey;
     let cumulativePath = [];
     let currentNode = null;
-    for (const label of labels) {
-      if (!String(label ?? "").trim()) continue;
-      cumulativePath = [...cumulativePath, label];
+    for (const value of labels) {
+      const entry = normalizePathEntry(value);
+      if (!entry.label) continue;
+      cumulativePath = [...cumulativePath, entry.label];
       const pathKey = stableKey([kind, ...cumulativePath]);
-      currentNode = this.graph.getNode(`${kind}:${pathKey}`) ?? this.ensureNode(kind, label, meta, pathKey);
+      const nodeMeta = entry.code ? { ...meta, code: entry.code } : meta;
+      currentNode = this.graph.getNode(`${kind}:${pathKey}`) ?? this.ensureNode(kind, entry.label, nodeMeta, pathKey);
+      if (currentNode && entry.code && currentNode.meta?.code !== entry.code) {
+        currentNode.meta = { ...currentNode.meta, code: entry.code };
+      }
       if (currentParentKey && currentParentKey !== currentNode.key) {
         const exists = this.graph.getOutgoing(currentParentKey, "contains").some((edge) => edge.target === currentNode.key);
         if (!exists) {
@@ -211,6 +268,7 @@ function normalizeNodeKind(value) {
 function ingestHierarchySheet(builder, workbookName, sheet, spec, warnings) {
   const pathColumns = spec.pathColumns ?? [];
   const pathHeaders = pathColumns.map((aliases) => matchHeader(sheet.headers, aliases));
+  const codeHeaders = (spec.pathCodeColumns ?? []).map((aliases) => matchHeader(sheet.headers, aliases));
   if (!pathHeaders.some(Boolean)) {
     const headerRowText = sheet.configuredHeaderRow ? ` using headerRow=${sheet.configuredHeaderRow}` : "";
     throw new Error([
@@ -226,8 +284,9 @@ function ingestHierarchySheet(builder, workbookName, sheet, spec, warnings) {
       const excelRowNumber = rowNumber(row, rowIndex + 2);
       const meta = { sourceWorkbook: workbookName, sourceSheet: sheet.name, rowIndex: excelRowNumber };
       const pathValues = pathHeaders.map((header) => (header ? String(row[header] ?? "").trim() : "")).filter(Boolean);
+      const deepestCode = deepestCodeForRow(row, codeHeaders);
       if (pathValues.length) {
-        builder.ensureHierarchyPath(spec.nodeKind ?? "businessCapacity", pathValues, meta);
+        builder.ensureHierarchyPath(spec.nodeKind ?? "businessCapacity", pathEntriesFromLabels(pathValues, deepestCode), meta);
       }
     } catch (error) {
       throw wrapRowError(error, { workbookName, sheet, row, rowIndex, phase: "ingesting hierarchy row" });
@@ -257,7 +316,7 @@ function targetNodesFromRow(builder, row, spec, meta, warnings) {
 
   if (pathValues.length) {
     return pathValues
-      .map((value) => parseBusinessCapabilityPath(value))
+      .map((value) => kind === "businessCapacity" ? parseBusinessCapabilityPath(value) : parseBusinessCapabilityPathLegacy(value))
       .filter((path) => path.length)
       .map((path) => builder.ensureHierarchyPath(kind, path, meta, null));
   }

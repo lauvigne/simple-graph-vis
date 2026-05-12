@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { CoverageCandidate, CoverageOptions, CoverageScopeMode, CoverageSummary, GraphSummary } from '../../models/storage-data';
+import { CoverageCandidate, CoverageOptions, CoverageScopeMode, CoverageSummary, GraphNode, GraphSummary } from '../../models/storage-data';
 import { CoverageAnalysisService } from '../../services/coverage-analysis.service';
 import { GraphService } from '../../services/graph.service';
 import { GraphState } from '../../services/graph-state';
@@ -126,6 +126,15 @@ export class Dashboard {
   barWidth(value: number, total: number): number {
     if (!total) return 0;
     return Math.max(4, Math.min(100, (value / total) * 100));
+  }
+
+  applicationLabel(code: string | undefined, label: string): string {
+    return code ? `${code} # ${label}` : label;
+  }
+
+  capabilityLabel(node: GraphNode): string {
+    const code = node.meta['code'];
+    return typeof code === 'string' && code.trim() ? `${code.trim()} ${node.label}` : node.label;
   }
 
   private resetPagination(): void {

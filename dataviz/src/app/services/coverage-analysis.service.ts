@@ -126,6 +126,8 @@ export class CoverageAnalysisService {
         coveringEntity: covering.entity,
         coveredApp: covered.app.label,
         coveringApp: covering.app.label,
+        coveredAppCode: this.stringMeta(covered.app, 'applicationCode'),
+        coveringAppCode: this.stringMeta(covering.app, 'applicationCode'),
         coveredAppKey: covered.app.key,
         coveringAppKey: covering.app.key,
         coverage,
@@ -141,6 +143,11 @@ export class CoverageAnalysisService {
       });
     }
     return this.sortCandidates(candidates).slice(0, options.maxCandidatesPerCoveredApplication ?? 20);
+  }
+
+  private stringMeta(node: GraphNode, key: string): string | undefined {
+    const value = node.meta[key];
+    return typeof value === 'string' && value.trim() ? value.trim() : undefined;
   }
 
   private nodesFromKeys(graph: TypedGraph, keys: Iterable<string>): GraphNode[] {

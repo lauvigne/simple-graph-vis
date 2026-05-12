@@ -108,9 +108,9 @@
             @for (candidate of displayedCandidates(); track candidate.coveredAppKey + candidate.coveringAppKey) {
               <tr [class.selected]="selectedCandidate()?.coveredAppKey === candidate.coveredAppKey && selectedCandidate()?.coveringAppKey === candidate.coveringAppKey" (click)="selectCandidate(candidate)">
                 <td>{{ candidate.coveredEntity }}</td>
-                <td>{{ candidate.coveredApp }}</td>
+                <td>{{ applicationLabel(candidate.coveredAppCode, candidate.coveredApp) }}</td>
                 <td>{{ candidate.coveringEntity }}</td>
-                <td>{{ candidate.coveringApp }}</td>
+                <td>{{ applicationLabel(candidate.coveringAppCode, candidate.coveringApp) }}</td>
                 <td><span class="pill" [class.near]="candidate.type === 'near'">{{ candidate.type === 'exact' ? 'Exact' : 'Proche' }}</span></td>
                 <td>{{ candidate.coverage | percent:'1.0-0' }}</td>
               </tr>
@@ -137,9 +137,9 @@
           <span>{{ candidate.coverage | percent:'1.0-0' }}</span>
         </div>
         <h3>
-          {{ candidate.coveredEntity }} / {{ candidate.coveredApp }}
+          {{ candidate.coveredEntity }} / {{ applicationLabel(candidate.coveredAppCode, candidate.coveredApp) }}
           →
-          {{ candidate.coveringEntity }} / {{ candidate.coveringApp }}
+          {{ candidate.coveringEntity }} / {{ applicationLabel(candidate.coveringAppCode, candidate.coveringApp) }}
         </h3>
         <div class="bars" aria-label="Synthèse de couverture">
           <div>
@@ -163,7 +163,7 @@
             <h4>Capacités partagées</h4>
             <ul>
               @for (node of candidate.sharedNodes.slice(0, 12); track node.key) {
-                <li>{{ node.label }}</li>
+                <li>{{ capabilityLabel(node) }}</li>
               }
             </ul>
           </section>
@@ -171,7 +171,7 @@
             <h4>Capacités manquantes</h4>
             <ul>
               @for (node of candidate.missingNodes.slice(0, 12); track node.key) {
-                <li>{{ node.label }}</li>
+                <li>{{ capabilityLabel(node) }}</li>
               } @empty {
                 <li>Aucune capacité manquante.</li>
               }

@@ -90,6 +90,8 @@ export interface CoverageCandidate {
   coveringEntity: string;
   coveredApp: string;
   coveringApp: string;
+  coveredAppCode?: string;
+  coveringAppCode?: string;
   coveredAppKey: string;
   coveringAppKey: string;
   coverage: number;

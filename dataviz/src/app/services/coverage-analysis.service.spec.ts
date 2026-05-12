@@ -25,6 +25,8 @@ describe('CoverageAnalysisService', () => {
       entity: 'E1',
       coveredApp: 'Narrow App',
       coveringApp: 'Wide App',
+      coveredAppCode: 'APP-NARROW',
+      coveringAppCode: 'APP-WIDE',
       type: 'exact',
       coverage: 1,
     }));

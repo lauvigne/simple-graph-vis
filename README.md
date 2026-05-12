@@ -123,7 +123,14 @@ Si un onglet commence par deux lignes de titre fusionnées et que les vrais noms
     ["Business Capability (L2)"],
     ["Business Capability (L3)"],
   ],
+  pathCodeColumns: [
+    [],
+    ["Business Capability (L2) long name"],
+    ["Business Capability (L3) long name"],
+  ],
 }
 ```
 
 Si les colonnes attendues ne sont pas trouvées, l’import échoue maintenant explicitement avec les en-têtes détectés et les colonnes attendues.
+
+`pathCodeColumns` est optionnel. Il sert à extraire le préfixe numérique des colonnes de nom long, par exemple `3.1.1 Enterprise Enabling / ...`, puis à le conserver dans `meta.code` dans `storage-data.json`. Sans ces colonnes, les capacités restent exploitables mais l’affichage dataviz ne peut pas préfixer le libellé par le code.
