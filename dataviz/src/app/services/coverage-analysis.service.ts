@@ -19,27 +19,15 @@ export class CoverageAnalysisService {
     const coveredApps = appInfos.filter((info) => !options.entity || info.entity === options.entity);
 
     const candidates: CoverageCandidate[] = [];
-    const candidateCountsByEntity = new Map<string, number>();
     const scopeIndex = this.buildScopeIndex(appInfos);
 
     for (const covered of coveredApps) {
-      const currentEntityCount = candidateCountsByEntity.get(covered.entity) ?? 0;
-      if (currentEntityCount >= options.maxCandidatesPerEntity) continue;
-
       const appCandidates = this.buildAppCandidates(graph, covered, scopeIndex, options, scopeMode);
-      for (const candidate of appCandidates) {
-        const count = candidateCountsByEntity.get(candidate.coveredEntity) ?? 0;
-        if (count >= options.maxCandidatesPerEntity) break;
-        candidates.push(candidate);
-        candidateCountsByEntity.set(candidate.coveredEntity, count + 1);
-        if (candidates.length >= options.maxCandidates) {
-          candidates.length = options.maxCandidates;
-          return this.sortCandidates(candidates);
-        }
-      }
+      candidates.push(...appCandidates);
     }
 
-    return this.sortCandidates(candidates);
+    return this.limitCandidatesByEntity(this.sortCandidates(candidates), options)
+      .slice(0, options.maxCandidates);
   }
 
   private sortCandidates(candidates: CoverageCandidate[]): CoverageCandidate[] {
@@ -53,11 +41,23 @@ export class CoverageAnalysisService {
     });
   }
 
+  private limitCandidatesByEntity(candidates: CoverageCandidate[], options: CoverageOptions): CoverageCandidate[] {
+    const countsByEntity = new Map<string, number>();
+    return candidates.filter((candidate) => {
+      const count = countsByEntity.get(candidate.coveredEntity) ?? 0;
+      if (count >= options.maxCandidatesPerEntity) return false;
+      countsByEntity.set(candidate.coveredEntity, count + 1);
+      return true;
+    });
+  }
+
   summarize(candidates: CoverageCandidate[]): CoverageSummary {
     return {
       candidates: candidates.length,
       exact: candidates.filter((candidate) => candidate.type === 'exact').length,
       near: candidates.filter((candidate) => candidate.type === 'near').length,
+      coveredApplications: new Set(candidates.map((candidate) => candidate.coveredAppKey)).size,
+      coveringApplications: new Set(candidates.map((candidate) => candidate.coveringAppKey)).size,
       entities: new Set(candidates.flatMap((candidate) => [candidate.coveredEntity, candidate.coveringEntity])).size,
     };
   }
@@ -139,9 +139,8 @@ export class CoverageAnalysisService {
         directTargetsA: this.nodesFromKeys(graph, covered.directTargets),
         directTargetsB: this.nodesFromKeys(graph, covering.directTargets),
       });
-      if (candidates.length >= options.maxCandidatesPerEntity) break;
     }
-    return candidates;
+    return this.sortCandidates(candidates).slice(0, options.maxCandidatesPerCoveredApplication ?? 20);
   }
 
   private nodesFromKeys(graph: TypedGraph, keys: Iterable<string>): GraphNode[] {

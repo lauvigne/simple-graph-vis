@@ -20,12 +20,20 @@
       <strong>{{ graphSummary().kinds['businessCapacity'] || 0 }}</strong>
     </article>
     <article>
-      <span>Candidats</span>
-      <strong>{{ coverageSummary().candidates }}</strong>
+      <span>Relations candidates</span>
+      <strong>{{ coverageSummary().candidates }}{{ candidateLimitReached() ? '+' : '' }}</strong>
     </article>
     <article>
-      <span>Exact / proche</span>
+      <span>Relations exactes / proches</span>
       <strong>{{ coverageSummary().exact }} / {{ coverageSummary().near }}</strong>
+    </article>
+    <article>
+      <span>Apps couvertes distinctes</span>
+      <strong>{{ coverageSummary().coveredApplications }}</strong>
+    </article>
+    <article>
+      <span>Apps couvrantes distinctes</span>
+      <strong>{{ coverageSummary().coveringApplications }}</strong>
     </article>
   </section>
 
@@ -114,7 +122,7 @@
           </tbody>
         </table>
       </div>
-      @if (filteredCandidates().length >= candidateOptions().maxCandidates) {
+      @if (candidateLimitReached()) {
         <p class="table-note">
           Le calcul est plafonné à {{ candidateOptions().maxCandidates }} relations candidates.
           La pagination permet de parcourir les résultats calculés.

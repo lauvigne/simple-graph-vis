@@ -98,4 +98,45 @@ describe('CoverageAnalysisService', () => {
     expect(crossEntityCandidates.length).toBeGreaterThan(0);
     expect(crossEntityCandidates.every((candidate) => candidate.coveredEntity !== candidate.coveringEntity)).toBe(true);
   });
+
+  it('summarizes relations separately from distinct applications', () => {
+    const graph = graphService.buildGraph(storageFixture);
+    const candidates = service.buildCandidates(graph, {
+      threshold: 0.5,
+      includePartialCoverage: true,
+      maxCandidates: 20,
+      maxCandidatesPerEntity: 20,
+      scopeMode: 'withinEntity',
+    });
+
+    const summary = service.summarize(candidates);
+
+    expect(summary.candidates).toBe(candidates.length);
+    expect(summary.exact + summary.near).toBe(candidates.length);
+    expect(summary.coveredApplications).toBeLessThanOrEqual(summary.candidates);
+    expect(summary.coveringApplications).toBeLessThanOrEqual(summary.candidates);
+  });
+
+  it('does not reduce covered applications when the near threshold is lowered', () => {
+    const graph = graphService.buildGraph(storageFixture);
+    const strictCandidates = service.buildCandidates(graph, {
+      threshold: 0.8,
+      includePartialCoverage: true,
+      maxCandidates: 20,
+      maxCandidatesPerEntity: 20,
+      maxCandidatesPerCoveredApplication: 20,
+      scopeMode: 'withinEntity',
+    });
+    const relaxedCandidates = service.buildCandidates(graph, {
+      threshold: 0.5,
+      includePartialCoverage: true,
+      maxCandidates: 20,
+      maxCandidatesPerEntity: 20,
+      maxCandidatesPerCoveredApplication: 20,
+      scopeMode: 'withinEntity',
+    });
+
+    expect(service.summarize(relaxedCandidates).coveredApplications)
+      .toBeGreaterThanOrEqual(service.summarize(strictCandidates).coveredApplications);
+  });
 });

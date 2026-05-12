@@ -111,6 +111,7 @@ export interface CoverageOptions {
   includePartialCoverage: boolean;
   maxCandidates: number;
   maxCandidatesPerEntity: number;
+  maxCandidatesPerCoveredApplication?: number;
   entity?: string;
   scopeMode?: CoverageScopeMode;
 }
@@ -119,5 +120,7 @@ export interface CoverageSummary {
   candidates: number;
   exact: number;
   near: number;
+  coveredApplications: number;
+  coveringApplications: number;
   entities: number;
 }

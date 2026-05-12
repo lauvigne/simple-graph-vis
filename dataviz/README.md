@@ -159,3 +159,40 @@ Les tests unitaires couvrent:
 - isolation par entité;
 - rendu minimal du dashboard;
 - rendu du treemap et calcul du total.
+
+## Analyse De Couverture
+
+Le dashboard calcule des **relations candidates** entre deux applications:
+
+```text
+application couverte -> application couvrante
+```
+
+Le score de couverture est calculé dans `CoverageAnalysisService` avec:
+
+```text
+coverage = capacités partagées / capacités de l'application couverte
+```
+
+Une relation est:
+
+- `exact` si `coverage = 100%`;
+- `near` si `coverage >= seuil` et `< 100%`.
+
+Le seuil du dashboard ne filtre donc que les relations `near`. Les relations `exact` restent toujours candidates, quel que soit le seuil.
+
+Comportement actuel important:
+
+- Tant que le scope applicatif est basé uniquement sur les business capabilities, il est normal d'avoir beaucoup de relations exactes.
+- Le tri privilégie les relations exactes avant les relations proches.
+- Une limite est appliquée par application couverte pour éviter qu'une application génère trop de relations.
+- Donc, si beaucoup de relations exactes existent déjà, les relations proches peuvent être peu visibles même en baissant le seuil.
+
+Ce comportement est accepté pour l'instant. Il devrait évoluer naturellement quand `Applicability Taxonomy` sera utilisée dans le scope applicatif, car les axes comme régulation, segment client, produit, canal ou géographie réduiront le nombre de couvertures exactes.
+
+Prochaine évolution prévue:
+
+- intégrer `Applicability Taxonomy` dans le graphe;
+- relier les applications à plusieurs axes d'applicabilité;
+- inclure ces axes dans le calcul du scope;
+- réévaluer ensuite la stratégie d'affichage `exact` vs `near`.

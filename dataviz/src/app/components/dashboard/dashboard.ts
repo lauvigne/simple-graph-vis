@@ -32,6 +32,7 @@ export class Dashboard {
     includePartialCoverage: this.includePartialCoverage(),
     maxCandidates: 5000,
     maxCandidatesPerEntity: 1250,
+    maxCandidatesPerCoveredApplication: 20,
     entity: this.selectedEntity() || undefined,
     scopeMode: this.scopeMode(),
   }));
@@ -46,6 +47,9 @@ export class Dashboard {
   );
   readonly coverageSummary = computed<CoverageSummary>(() =>
     this.coverageAnalysis.summarize(this.filteredCandidates()),
+  );
+  readonly candidateLimitReached = computed(() =>
+    this.filteredCandidates().length >= this.candidateOptions().maxCandidates,
   );
 
   constructor() {
