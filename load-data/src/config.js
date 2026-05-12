@@ -5,7 +5,7 @@ export const defaultConfig = {
       nodeKind: "businessCapacity",
       // 1-based row number containing the real column headers.
       // Set this to 3 when the first two Excel rows are merged title/comment rows.
-      headerRow: 1,
+      headerRow: 3,
       // The hierarchy sheet is read level by level. Do not use columns that
       // already contain the full path here, otherwise node labels will be wrong.
       pathColumns: [

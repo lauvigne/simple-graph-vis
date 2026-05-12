@@ -173,28 +173,9 @@ function ingestHierarchySheet(builder, workbookName, sheet, spec, warnings) {
 
   for (const [rowIndex, row] of sheet.rows.entries()) {
     const meta = { sourceWorkbook: workbookName, sourceSheet: sheet.name, rowIndex: rowIndex + 2 };
-    const columns = resolveColumns(sheet.headers, spec, ["domainColumns", "regulationColumns"]);
-    const regulationLabel = columns.regulationColumns ? readRowValue(row, spec.regulationColumns) : "";
-    const domainLabel = columns.domainColumns ? readRowValue(row, spec.domainColumns) : "";
-    let parentKey = null;
-
-    if (regulationLabel) {
-      const regulationNode = builder.ensureLabelNode("regulation", regulationLabel, meta);
-      parentKey = regulationNode.key;
-    }
-
-    if (domainLabel) {
-      const domainNode = builder.ensureLabelNode("domain", domainLabel, meta);
-      if (parentKey) {
-        const exists = builder.graph.getOutgoing(parentKey, "contains").some((edge) => edge.target === domainNode.key);
-        if (!exists) builder.graph.addEdge(parentKey, domainNode.key, "contains", meta);
-      }
-      parentKey = domainNode.key;
-    }
-
     const pathValues = pathHeaders.map((header) => (header ? String(row[header] ?? "").trim() : "")).filter(Boolean);
     if (pathValues.length) {
-      builder.ensureHierarchyPath(spec.nodeKind ?? "businessCapacity", pathValues, meta, parentKey);
+      builder.ensureHierarchyPath(spec.nodeKind ?? "businessCapacity", pathValues, meta);
     }
   }
 }
