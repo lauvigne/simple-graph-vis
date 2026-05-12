@@ -10,6 +10,10 @@ export const routes: Routes = [
     loadComponent: () => import('./components/treemap-demo/treemap-demo').then((module) => module.TreemapDemo),
   },
   {
+    path: 'sunburst',
+    loadComponent: () => import('./components/sunburst-demo/sunburst-demo').then((module) => module.SunburstDemo),
+  },
+  {
     path: 'load-json',
     loadComponent: () => import('./components/json-loader/json-loader').then((module) => module.JsonLoader),
   },

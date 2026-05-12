@@ -1,0 +1,60 @@
+<section class="sunburst-card">
+  @if (data(); as chartData) {
+    <header>
+      <div>
+        <p class="eyebrow">Sunburst</p>
+        <h2>{{ chartData.label }}</h2>
+      </div>
+      <div class="metric">
+        <span>{{ chartData.metric.label }}</span>
+        <strong>
+          {{ total() | number:'1.0-0' }}
+          @if (chartData.metric.unit) {
+            <small>{{ chartData.metric.unit }}</small>
+          }
+        </strong>
+      </div>
+    </header>
+
+    @if (slices().length) {
+    <svg
+      role="img"
+      [attr.aria-label]="chartData.label + ' par ' + chartData.metric.label"
+      [attr.viewBox]="'0 0 ' + width() + ' ' + height()"
+      preserveAspectRatio="xMidYMid meet"
+    >
+      <g [attr.transform]="'translate(' + width() / 2 + ',' + height() / 2 + ')'">
+        <circle class="center-hole" [attr.r]="centerRadius()" />
+
+        @for (slice of slices(); track slice.id) {
+          <path [attr.d]="slice.arcPath" [attr.fill]="slice.color" [attr.fill-opacity]="slice.opacity" class="slice">
+            <title>{{ sliceTitle(slice) }}</title>
+          </path>
+        }
+
+        <g class="center-summary">
+          <text class="summary-label" text-anchor="middle" y="-8">{{ chartData.label }}</text>
+          <text class="summary-value" text-anchor="middle" y="18">
+            {{ total() | number:'1.0-0' }}
+            @if (chartData.metric.unit) {
+              <tspan class="summary-unit"> {{ chartData.metric.unit }}</tspan>
+            }
+          </text>
+        </g>
+
+        @for (slice of slices(); track slice.id) {
+          @if (showLabel(slice)) {
+            <text class="slice-label" [attr.transform]="labelTransform(slice)" text-anchor="middle">
+              {{ visibleLabel(slice) }}
+            </text>
+          }
+        }
+      </g>
+    </svg>
+    } @else {
+      <p class="empty">Aucune donnée de sunburst à afficher.</p>
+    }
+  } @else {
+    <p class="empty">Aucune donnée de sunburst à afficher.</p>
+  }
+</section>

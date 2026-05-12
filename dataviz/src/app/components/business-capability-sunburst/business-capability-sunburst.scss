@@ -1,0 +1,115 @@
+:host {
+  display: block;
+}
+
+.sunburst-card {
+  background: #fff;
+  border: 1px solid #dce2d5;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: baseline;
+  margin-bottom: 14px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: #5f6f57;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.metric {
+  text-align: right;
+}
+
+.metric span {
+  color: #667260;
+  display: block;
+  font-size: 13px;
+}
+
+.metric strong {
+  display: block;
+  font-size: 28px;
+}
+
+.metric small {
+  color: #667260;
+  font-size: 14px;
+}
+
+svg {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  border-radius: 8px;
+  background: #f5f6f2;
+}
+
+.slice {
+  stroke: rgba(255, 255, 255, 0.8);
+  stroke-width: 1;
+}
+
+.slice-label {
+  fill: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.center-hole {
+  fill: #f5f6f2;
+}
+
+.center-summary {
+  pointer-events: none;
+  user-select: none;
+}
+
+.summary-label {
+  fill: #51604c;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.summary-value {
+  fill: #17201a;
+  font-size: 22px;
+  font-weight: 750;
+}
+
+.summary-unit {
+  fill: #667260;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.empty {
+  color: #667260;
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .metric {
+    text-align: left;
+  }
+}

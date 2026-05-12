@@ -37,11 +37,14 @@ Depuis le dashboard, il est aussi possible de charger un autre JSON local via le
 
 - `src/app/models/storage-data.ts`: types du JSON compact, graphe typé et candidats.
 - `src/app/models/treemap-data.ts`: contrat de données pour les treemaps.
+- `src/app/models/sunburst-data.ts`: contrat générique pour les sunbursts.
 - `src/app/services/storage-loader.service.ts`: chargement du JSON par asset ou fichier local.
 - `src/app/services/graph.service.ts`: reconstruction du graphe, index et fermeture hiérarchique.
 - `src/app/services/coverage-analysis.service.ts`: calcul des candidats exacts et partiels.
 - `src/app/visualizations/treemap-layout.ts`: calcul D3 pur du layout treemap, sans dépendance Angular.
+- `src/app/visualizations/sunburst-layout.ts`: calcul D3 pur du layout sunburst, sans dépendance Angular.
 - `src/app/components/business-domain-treemap`: composant SVG/D3 pour afficher une métrique hiérarchique par domaine.
+- `src/app/components/business-capability-sunburst`: composant SVG/D3 pour afficher un sunburst hiérarchique.
 - `src/testing/fixtures`: jeux de données compacts pour les tests.
 
 ## Treemap Business Domain

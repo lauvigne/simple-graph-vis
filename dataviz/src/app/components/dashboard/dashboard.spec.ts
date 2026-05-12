@@ -37,8 +37,10 @@ describe('Dashboard', () => {
     expect(compiled.textContent).toContain('Analyse des candidats de remplacement');
     expect(compiled.textContent).toContain('Applications');
     expect(compiled.textContent).toContain('4');
-    expect(compiled.textContent).toContain('APP-NARROW#Narrow App');
-    expect(compiled.textContent).toContain('1.1.1#L3 A');
+    expect(compiled.textContent).toContain('APP-NARROW');
+    expect(compiled.textContent).toContain('Narrow App');
+    expect(compiled.textContent).toContain('1.1.1');
+    expect(compiled.textContent).toContain('L3 A');
   });
 
   it('updates candidates when threshold changes', () => {

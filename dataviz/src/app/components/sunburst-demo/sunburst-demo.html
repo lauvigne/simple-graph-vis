@@ -1,0 +1,15 @@
+<main class="demo-shell">
+  <header class="page-header">
+    <p class="eyebrow">Business capability sunburst</p>
+    <h1>Sunburst de démonstration</h1>
+    <p>
+      Les deux vues utilisent le graphe chargé et affichent les deux premiers niveaux de capacités métier.
+      Le TCO reste simulé tant que cette métrique n’est pas présente dans la source.
+    </p>
+  </header>
+
+  <section class="demo-grid">
+    <app-business-capability-sunburst [data]="capabilityCountData()" />
+    <app-business-capability-sunburst [data]="tcoData()" [height]="520" />
+  </section>
+</main>
