@@ -21,6 +21,8 @@ pnpm build
 pnpm ng serve --port 4201 --host 127.0.0.1
 ```
 
+Le routage est configuré en mode hash, donc les URLs navigables ressemblent à `/#/dashboard` et `/#/treemap`. Cela évite de dépendre d'une réécriture côté serveur pour les accès directs.
+
 ## Données
 
 Le fichier de démonstration attendu est:
