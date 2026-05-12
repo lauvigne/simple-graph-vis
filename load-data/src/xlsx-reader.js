@@ -171,7 +171,7 @@ function cellValue(cell, sharedStrings) {
 
 function sheetXmlToRows(xmlText, sharedStrings) {
   const doc = parseXml(xmlText);
-  const rows = [];
+  const rawRows = [];
   const rowNodes = Array.from(doc.getElementsByTagName("row"));
   for (const rowNode of rowNodes) {
     const cells = Array.from(rowNode.getElementsByTagName("c"));
@@ -181,9 +181,10 @@ function sheetXmlToRows(xmlText, sharedStrings) {
       const colIndex = cellRefToColumnIndex(ref);
       indexed[colIndex] = cellValue(cell, sharedStrings);
     }
-    rows.push(indexed);
+    rawRows.push(indexed);
   }
-  if (!rows.length) return { headers: [], rows: [] };
+  if (!rawRows.length) return { headers: [], rows: [], rawRows: [] };
+  const rows = rawRows.slice();
   const headers = rows.shift().map((value) => String(value ?? "").trim());
   const data = rows
     .filter((row) => row.some((value) => String(value ?? "").trim() !== ""))
@@ -194,7 +195,7 @@ function sheetXmlToRows(xmlText, sharedStrings) {
       });
       return record;
     });
-  return { headers, rows: data };
+  return { headers, rows: data, rawRows };
 }
 
 export async function readXlsxFile(file) {
@@ -214,4 +215,3 @@ export async function readXlsxFile(file) {
     sheets,
   };
 }
-

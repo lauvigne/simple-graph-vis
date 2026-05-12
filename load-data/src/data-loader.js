@@ -22,6 +22,47 @@ function splitMappingValues(value) {
     .filter(Boolean);
 }
 
+function rowToHeaders(row) {
+  return (row ?? []).map((value) => String(value ?? "").trim());
+}
+
+function rowsFromHeaderRow(rawRows, headerRow = 1) {
+  const headerIndex = Math.max(0, Number(headerRow || 1) - 1);
+  const headers = rowToHeaders(rawRows[headerIndex]);
+  const rows = rawRows
+    .slice(headerIndex + 1)
+    .filter((row) => row.some((value) => String(value ?? "").trim() !== ""))
+    .map((row) => {
+      const record = {};
+      headers.forEach((header, index) => {
+        if (!header) return;
+        record[header] = row[index] ?? "";
+      });
+      return record;
+    });
+  return { headers, rows };
+}
+
+function sheetForSpec(sheet, spec) {
+  const headerRow = Number(spec.headerRow ?? 1);
+  if (headerRow <= 1 || !Array.isArray(sheet.rawRows)) {
+    return sheet;
+  }
+  const parsed = rowsFromHeaderRow(sheet.rawRows, headerRow);
+  return {
+    ...sheet,
+    headers: parsed.headers,
+    rows: parsed.rows,
+    configuredHeaderRow: headerRow,
+  };
+}
+
+function formatColumnAliases(columnSpecs) {
+  return columnSpecs
+    .map((aliases) => aliases.join(" | "))
+    .join(", ");
+}
+
 function parseBusinessCapabilityPath(value) {
   const text = String(value ?? "").trim();
   if (!text) return [];
@@ -121,8 +162,13 @@ function ingestHierarchySheet(builder, workbookName, sheet, spec, warnings) {
   const pathColumns = spec.pathColumns ?? [];
   const pathHeaders = pathColumns.map((aliases) => matchHeader(sheet.headers, aliases));
   if (!pathHeaders.some(Boolean)) {
-    warnings.push(`Sheet "${sheet.name}" in ${workbookName}: no capacity path columns matched.`);
-    return;
+    const headerRowText = sheet.configuredHeaderRow ? ` using headerRow=${sheet.configuredHeaderRow}` : "";
+    throw new Error([
+      `Sheet "${sheet.name}" in ${workbookName}: no capacity path columns matched${headerRowText}.`,
+      `Expected one of: ${formatColumnAliases(pathColumns)}.`,
+      `Detected headers: ${sheet.headers.filter(Boolean).join(", ") || "(none)"}.`,
+      `If the Excel headers are not on line 1, set "headerRow" on this hierarchy sheet in config.js.`,
+    ].join(" "));
   }
 
   for (const [rowIndex, row] of sheet.rows.entries()) {
@@ -238,12 +284,12 @@ export function buildGraphFromWorkbooks(workbooks, config) {
     for (const sheet of workbook.sheets) {
       for (const spec of config.hierarchySheets ?? []) {
         if (findSheetByName({ sheets: [sheet] }, spec.sheetName)) {
-          ingestHierarchySheet(builder, workbook.name, sheet, spec, warnings);
+          ingestHierarchySheet(builder, workbook.name, sheetForSpec(sheet, spec), spec, warnings);
         }
       }
       for (const spec of config.mappingSheets ?? []) {
         if (findSheetByName({ sheets: [sheet] }, spec.sheetName)) {
-          ingestMappingSheet(builder, workbook.name, sheet, spec, warnings);
+          ingestMappingSheet(builder, workbook.name, sheetForSpec(sheet, spec), spec, warnings);
         }
       }
     }
@@ -259,6 +305,7 @@ export function normalizeWorkbooks(parsedWorkbooks) {
       name: sheet.name,
       headers: sheet.headers,
       rows: sheet.rows,
+      rawRows: sheet.rawRows,
     })),
   }));
 }

@@ -37,7 +37,10 @@ export function csvEscape(value) {
 }
 
 export function matchHeader(headers, candidates) {
-  const list = Array.isArray(candidates) ? candidates.flat() : [candidates];
+  const list = (Array.isArray(candidates) ? candidates.flat() : [candidates])
+    .map((candidate) => String(candidate ?? "").trim())
+    .filter(Boolean);
+  if (!list.length) return null;
   const normalized = headers.map((header) => [header, normalizeText(header)]);
   for (const candidate of list) {
     const candidateNorm = normalizeText(candidate);
@@ -74,4 +77,3 @@ export function stableKey(parts) {
     .filter(Boolean)
     .join("::");
 }
-

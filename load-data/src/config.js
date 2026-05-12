@@ -3,6 +3,11 @@ export const defaultConfig = {
     {
       sheetName: ["BIAN Capabilities"],
       nodeKind: "businessCapacity",
+      // 1-based row number containing the real column headers.
+      // Set this to 3 when the first two Excel rows are merged title/comment rows.
+      headerRow: 1,
+      // The hierarchy sheet is read level by level. Do not use columns that
+      // already contain the full path here, otherwise node labels will be wrong.
       pathColumns: [
         ["Business Capability (L1)"],
         ["Business Capability (L2)"],
@@ -17,8 +22,9 @@ export const defaultConfig = {
       applicationColumn: ["Application Display Name"],
       applicationNameColumn: ["Application Name"],
       entityValue: "E1",
-      targetKindColumn: ["Type de nœud", "Node kind", "Type", "Target kind"],
-      targetLabelColumn: ["Libellé cible", "Target label", "Target", "Node"],
+      // BIAN L2 / BIAN L3 contain long path values, for example:
+      // "3.1 Enterprise Enabling / Facility and Equipment Management".
+      // The loader strips the numeric prefix and splits on " / ".
       targetPathColumns: [
         ["BIAN L2"],
         ["BIAN L3"],

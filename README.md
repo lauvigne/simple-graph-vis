@@ -67,6 +67,9 @@ Tu peux lui demander quelque chose comme:
 
 - `hierarchySheets[*].sheetName`
   - noms d’onglets contenant la hiérarchie des capacités.
+- `hierarchySheets[*].headerRow`
+  - numéro de ligne Excel, base 1, qui contient les vrais en-têtes.
+  - utiliser `3` si les deux premières lignes sont des titres/commentaires fusionnés.
 - `hierarchySheets[*].pathColumns`
   - alias des 4 niveaux de capacité, dans l’ordre réel de ton modèle.
 - `hierarchySheets[*].domainColumns`
@@ -75,6 +78,8 @@ Tu peux lui demander quelque chose comme:
   - colonne de réglementation si elle existe.
 - `mappingSheets[*].sheetName`
   - onglets qui portent les mappings applicatifs.
+- `mappingSheets[*].headerRow`
+  - optionnel, même principe que pour `hierarchySheets`; utile si les en-têtes ne sont pas en ligne 1.
 - `mappingSheets[*].applicationColumn`
   - colonne qui identifie l’application.
 - `mappingSheets[*].entityColumn`
@@ -99,3 +104,22 @@ Après modification de `load-data/src/config.js`:
    - le détail d’un candidat explique bien la couverture.
 
 Si le mapping est faux, le premier endroit à corriger est `load-data/src/config.js`, pas le moteur de graphe.
+
+### Exemple avec en-têtes Excel en ligne 3
+
+Si un onglet commence par deux lignes de titre fusionnées et que les vrais noms de colonnes sont en ligne 3:
+
+```js
+{
+  sheetName: ["BIAN Capabilities"],
+  nodeKind: "businessCapacity",
+  headerRow: 3,
+  pathColumns: [
+    ["Business Capability (L1)"],
+    ["Business Capability (L2)"],
+    ["Business Capability (L3)"],
+  ],
+}
+```
+
+Si les colonnes attendues ne sont pas trouvées, l’import échoue maintenant explicitement avec les en-têtes détectés et les colonnes attendues.
