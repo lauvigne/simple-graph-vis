@@ -1,0 +1,184 @@
+<main class="dashboard-shell">
+  <header class="page-header">
+    <p class="eyebrow">Application coverage dashboard</p>
+    <h1>Analyse des candidats de remplacement</h1>
+  </header>
+
+  @if (!graphState.isLoaded()) {
+    <section class="banner warning">
+      Aucun JSON chargé. Utilisez la page Chargement JSON pour charger `storage-data.json`.
+    </section>
+  }
+
+  <section class="metrics">
+    <article>
+      <span>Applications</span>
+      <strong>{{ graphSummary().kinds['application'] || 0 }}</strong>
+    </article>
+    <article>
+      <span>Capacités</span>
+      <strong>{{ graphSummary().kinds['businessCapacity'] || 0 }}</strong>
+    </article>
+    <article>
+      <span>Candidats</span>
+      <strong>{{ coverageSummary().candidates }}</strong>
+    </article>
+    <article>
+      <span>Exact / proche</span>
+      <strong>{{ coverageSummary().exact }} / {{ coverageSummary().near }}</strong>
+    </article>
+  </section>
+
+  <section class="controls">
+    <label>
+      Entité couverte
+      <select [value]="selectedEntity()" (change)="setEntity($event)">
+        <option value="">Toutes les entités</option>
+        @for (entity of entities(); track entity) {
+          <option [value]="entity">{{ entity }}</option>
+        }
+      </select>
+    </label>
+    <label>
+      Comparaison
+      <select [value]="scopeMode()" (change)="setScopeMode($event)">
+        <option value="all">Toutes les entités</option>
+        <option value="crossEntity">Entre entités uniquement</option>
+        <option value="withinEntity">Même entité uniquement</option>
+      </select>
+    </label>
+    <label>
+      Seuil proche
+      <input type="range" min="50" max="100" step="5" [value]="thresholdPercent()" (input)="setThreshold($event)" />
+      <span>{{ thresholdPercent() }}%</span>
+    </label>
+    <label class="checkbox">
+      <input type="checkbox" [checked]="includePartialCoverage()" (change)="setIncludePartial($event)" />
+      Inclure les couvertures proches
+    </label>
+  </section>
+
+  <section class="layout">
+    <article class="panel candidates-panel">
+      <div class="panel-heading">
+        <h2>Candidats</h2>
+        <span>
+          {{ filteredCandidates().length ? pageStart() + 1 : 0 }}-{{ pageEnd() }}
+          / {{ filteredCandidates().length }} relation(s)
+        </span>
+      </div>
+      <div class="pagination">
+        <label>
+          Lignes par page
+          <select [value]="pageSize()" (change)="setPageSize($event)">
+            @for (option of pageSizeOptions; track option) {
+              <option [value]="option" [selected]="option === pageSize()">{{ option }}</option>
+            }
+          </select>
+        </label>
+        <div class="pagination-actions">
+          <button type="button" (click)="firstPage()" [disabled]="pageIndex() === 0">Début</button>
+          <button type="button" (click)="previousPage()" [disabled]="pageIndex() === 0">Précédent</button>
+          <span>Page {{ pageIndex() + 1 }} / {{ pageCount() }}</span>
+          <button type="button" (click)="nextPage()" [disabled]="pageIndex() >= pageCount() - 1">Suivant</button>
+          <button type="button" (click)="lastPage()" [disabled]="pageIndex() >= pageCount() - 1">Fin</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Entité couverte</th>
+              <th>Application couverte</th>
+              <th>Entité couvrante</th>
+              <th>Application couvrante</th>
+              <th>Type</th>
+              <th>Couverture</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (candidate of displayedCandidates(); track candidate.coveredAppKey + candidate.coveringAppKey) {
+              <tr [class.selected]="selectedCandidate()?.coveredAppKey === candidate.coveredAppKey && selectedCandidate()?.coveringAppKey === candidate.coveringAppKey" (click)="selectCandidate(candidate)">
+                <td>{{ candidate.coveredEntity }}</td>
+                <td>{{ candidate.coveredApp }}</td>
+                <td>{{ candidate.coveringEntity }}</td>
+                <td>{{ candidate.coveringApp }}</td>
+                <td><span class="pill" [class.near]="candidate.type === 'near'">{{ candidate.type === 'exact' ? 'Exact' : 'Proche' }}</span></td>
+                <td>{{ candidate.coverage | percent:'1.0-0' }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="6">Aucun candidat pour ces filtres.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (filteredCandidates().length >= candidateOptions().maxCandidates) {
+        <p class="table-note">
+          Le calcul est plafonné à {{ candidateOptions().maxCandidates }} relations candidates.
+          La pagination permet de parcourir les résultats calculés.
+        </p>
+      }
+    </article>
+
+    <article class="panel detail-panel">
+      @if (selectedCandidate(); as candidate) {
+        <div class="panel-heading">
+          <h2>Détail</h2>
+          <span>{{ candidate.coverage | percent:'1.0-0' }}</span>
+        </div>
+        <h3>
+          {{ candidate.coveredEntity }} / {{ candidate.coveredApp }}
+          →
+          {{ candidate.coveringEntity }} / {{ candidate.coveringApp }}
+        </h3>
+        <div class="bars" aria-label="Synthèse de couverture">
+          <div>
+            <span>Partagées</span>
+            <strong>{{ candidate.sharedNodes.length }}</strong>
+            <i [style.width.%]="barWidth(candidate.sharedNodes.length, candidate.coveredCount)"></i>
+          </div>
+          <div>
+            <span>Manquantes</span>
+            <strong>{{ candidate.missingNodes.length }}</strong>
+            <i class="missing" [style.width.%]="barWidth(candidate.missingNodes.length, candidate.coveredCount)"></i>
+          </div>
+          <div>
+            <span>Supplémentaires</span>
+            <strong>{{ candidate.extraNodes.length }}</strong>
+            <i class="extra" [style.width.%]="barWidth(candidate.extraNodes.length, candidate.coveringCount)"></i>
+          </div>
+        </div>
+        <div class="node-columns">
+          <section>
+            <h4>Capacités partagées</h4>
+            <ul>
+              @for (node of candidate.sharedNodes.slice(0, 12); track node.key) {
+                <li>{{ node.label }}</li>
+              }
+            </ul>
+          </section>
+          <section>
+            <h4>Capacités manquantes</h4>
+            <ul>
+              @for (node of candidate.missingNodes.slice(0, 12); track node.key) {
+                <li>{{ node.label }}</li>
+              } @empty {
+                <li>Aucune capacité manquante.</li>
+              }
+            </ul>
+          </section>
+        </div>
+      } @else {
+        <div class="empty-state">Chargez un JSON puis sélectionnez un candidat.</div>
+      }
+    </article>
+  </section>
+
+  <footer class="sources">
+    @for (source of graphState.storage()?.sources ?? []; track source.name) {
+      <span>{{ source.name }} · {{ source.sheets.length }} onglet(s)</span>
+    }
+  </footer>
+</main>

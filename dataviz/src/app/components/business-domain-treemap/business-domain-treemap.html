@@ -1,0 +1,52 @@
+<section class="treemap-card">
+  <header>
+    <div>
+      <p class="eyebrow">Treemap</p>
+      <h2>{{ data().label }}</h2>
+    </div>
+    <div class="metric">
+      <span>{{ data().metric.label }}</span>
+      <strong>
+        {{ total() | number:'1.0-0' }}
+        @if (data().metric.unit) {
+          <small>{{ data().metric.unit }}</small>
+        }
+      </strong>
+    </div>
+  </header>
+
+  @if (tiles().length) {
+    <svg
+      role="img"
+      [attr.aria-label]="data().label + ' par ' + data().metric.label"
+      [attr.viewBox]="'0 0 ' + width() + ' ' + height()"
+      preserveAspectRatio="xMidYMid meet"
+    >
+      @for (tile of tiles(); track tile.id) {
+        <g [attr.transform]="'translate(' + tile.x + ',' + tile.y + ')'">
+          <title>{{ tileTitle(tile) }}</title>
+          <rect
+            [attr.width]="tile.width"
+            [attr.height]="tile.height"
+            [attr.fill]="tile.color"
+            rx="5"
+            ry="5"
+          />
+          @if (showLabel(tile)) {
+            <text x="10" y="20">
+              <tspan class="tile-label">{{ tile.label }}</tspan>
+              <tspan class="tile-value" x="10" y="40">
+                {{ tile.value | number:'1.0-0' }}
+                @if (data().metric.unit) {
+                  {{ data().metric.unit }}
+                }
+              </tspan>
+            </text>
+          }
+        </g>
+      }
+    </svg>
+  } @else {
+    <p class="empty">Aucune donnée de treemap à afficher.</p>
+  }
+</section>

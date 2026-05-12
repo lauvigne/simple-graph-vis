@@ -1,0 +1,95 @@
+:host {
+  display: block;
+}
+
+.treemap-card {
+  background: #fff;
+  border: 1px solid #dce2d5;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: baseline;
+  margin-bottom: 14px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: #5f6f57;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.metric {
+  text-align: right;
+}
+
+.metric span {
+  color: #667260;
+  display: block;
+  font-size: 13px;
+}
+
+.metric strong {
+  display: block;
+  font-size: 28px;
+}
+
+.metric small {
+  color: #667260;
+  font-size: 14px;
+}
+
+svg {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  border-radius: 8px;
+  background: #f5f6f2;
+}
+
+rect {
+  stroke: rgba(255, 255, 255, 0.7);
+  stroke-width: 1;
+}
+
+text {
+  fill: #fff;
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.tile-label {
+  font-weight: 750;
+}
+
+.tile-value {
+  fill: rgba(255, 255, 255, 0.82);
+  font-size: 12px;
+}
+
+.empty {
+  color: #667260;
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .metric {
+    text-align: left;
+  }
+}

@@ -1,0 +1,35 @@
+.demo-shell {
+  width: min(1320px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 24px 0 36px;
+}
+
+.page-header {
+  border-bottom: 1px solid #d6dccf;
+  padding-bottom: 18px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: #5f6f57;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 750;
+}
+
+.page-header p:last-child {
+  color: #5f6f57;
+  max-width: 760px;
+}
+
+.demo-grid {
+  display: grid;
+  gap: 18px;
+  margin-top: 18px;
+}

@@ -1,0 +1,66 @@
+<main class="loader-shell">
+  <header class="page-header">
+    <p class="eyebrow">Source JSON</p>
+    <h1>Chargement des données</h1>
+    <p>
+      Cette page charge ou décharge le fichier compact `storage-data.json`.
+      Le dashboard exploite ensuite uniquement le graphe en mémoire.
+    </p>
+  </header>
+
+  @if (graphState.error()) {
+    <section class="banner warning">{{ graphState.error() }}</section>
+  }
+
+  <section class="panel actions-panel">
+    <div>
+      <h2>Données courantes</h2>
+      @if (graphState.isLoaded()) {
+        <p>JSON chargé en mémoire.</p>
+      } @else {
+        <p>Aucun JSON chargé.</p>
+      }
+    </div>
+    <div class="actions">
+      <button type="button" (click)="loadDefault()">Charger `assets/storage-data.json`</button>
+      <label class="file-action">
+        Charger un JSON local
+        <input type="file" accept=".json,application/json" (change)="onFileSelected($event)" />
+      </label>
+      <button class="secondary" type="button" (click)="unload()" [disabled]="!graphState.isLoaded()">Décharger</button>
+      <a class="secondary-link" routerLink="/dashboard">Voir le dashboard</a>
+    </div>
+  </section>
+
+  <section class="metrics">
+    <article>
+      <span>Nœuds</span>
+      <strong>{{ graphSummary().nodes }}</strong>
+    </article>
+    <article>
+      <span>Arêtes</span>
+      <strong>{{ graphSummary().edges }}</strong>
+    </article>
+    <article>
+      <span>Applications</span>
+      <strong>{{ graphSummary().kinds['application'] || 0 }}</strong>
+    </article>
+    <article>
+      <span>Capacités</span>
+      <strong>{{ graphSummary().kinds['businessCapacity'] || 0 }}</strong>
+    </article>
+  </section>
+
+  <section class="panel">
+    <h2>Sources</h2>
+    @if (graphState.storage()?.sources?.length) {
+      <ul>
+        @for (source of graphState.storage()?.sources ?? []; track source.name) {
+          <li>{{ source.name }} · {{ source.sheets.length }} onglet(s)</li>
+        }
+      </ul>
+    } @else {
+      <p>Aucune source disponible.</p>
+    }
+  </section>
+</main>
