@@ -1,0 +1,81 @@
+<main class="capability-shell">
+  <header class="page-header">
+    <p class="eyebrow">Business capabilities</p>
+    <h1>Table des capacités métier</h1>
+    <p>
+      Vue de contrôle du référentiel chargé: une ligne par nœud `businessCapacity`, avec le code et les
+      cinq premiers niveaux reconstruits depuis les relations `contains`.
+    </p>
+  </header>
+
+  <section class="metrics" aria-label="Synthèse des capacités métier">
+    <article>
+      <span>Capacités</span>
+      <strong>{{ rows().length }}</strong>
+    </article>
+    <article>
+      <span>Résultat filtré</span>
+      <strong>{{ filteredRows().length }}</strong>
+    </article>
+    <article>
+      <span>Profondeur max</span>
+      <strong>{{ maxDepth() }}</strong>
+    </article>
+    <article>
+      <span>Libellés dupliqués</span>
+      <strong>{{ duplicateLabels() }}</strong>
+    </article>
+    <article>
+      <span>Chemins dupliqués</span>
+      <strong>{{ duplicatePaths() }}</strong>
+    </article>
+  </section>
+
+  <section class="controls">
+    <label>
+      Filtrer
+      <input
+        type="search"
+        [value]="query()"
+        (input)="setQuery($event)"
+        placeholder="Code, libellé, niveau ou clé technique"
+      />
+    </label>
+  </section>
+
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>Capacités chargées</h2>
+      <span>{{ filteredRows().length }} / {{ rows().length }}</span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Niveau 1</th>
+            <th>Niveau 2</th>
+            <th>Niveau 3</th>
+            <th>Niveau 4</th>
+            <th>Niveau 5</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of filteredRows(); track row.key) {
+            <tr [title]="row.key">
+              <td class="code">{{ row.code || 'Sans code' }}</td>
+              @for (level of row.levels; track $index) {
+                <td>{{ level }}</td>
+              }
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="6">Aucune capacité métier à afficher.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>

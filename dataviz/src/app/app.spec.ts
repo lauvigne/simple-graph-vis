@@ -34,6 +34,7 @@ describe('App', () => {
     expect(fixture.componentInstance).toBeTruthy();
     expect(compiled.textContent).toContain('Coverage Dataviz');
     expect(compiled.textContent).toContain('Dashboard');
+    expect(compiled.textContent).toContain('Capacités');
     expect(compiled.textContent).toContain('Chargement JSON');
   });
 });
