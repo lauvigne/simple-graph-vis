@@ -344,6 +344,8 @@ export function normalizeWorkbooks(parsedWorkbooks) {
     name: workbook.name,
     sheets: workbook.sheets.map((sheet) => ({
       name: sheet.name,
+      state: sheet.state,
+      hidden: Boolean(sheet.hidden),
       headers: sheet.headers,
       rows: sheet.rows,
       rawRows: sheet.rawRows,

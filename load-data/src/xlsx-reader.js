@@ -131,10 +131,15 @@ function parseWorkbook(files) {
     rels.set(rel.getAttribute("Id"), resolveSheetPath(rel.getAttribute("Target") ?? ""));
   });
 
-  return Array.from(workbookDoc.getElementsByTagName("sheet")).map((sheet) => ({
-    name: sheet.getAttribute("name") ?? "",
-    path: rels.get(sheet.getAttribute("r:id")) ?? null,
-  })).filter((sheet) => Boolean(sheet.path));
+  return Array.from(workbookDoc.getElementsByTagName("sheet")).map((sheet) => {
+    const state = sheet.getAttribute("state") ?? "visible";
+    return {
+      name: sheet.getAttribute("name") ?? "",
+      path: rels.get(sheet.getAttribute("r:id")) ?? null,
+      state,
+      hidden: state !== "visible",
+    };
+  }).filter((sheet) => Boolean(sheet.path) && !sheet.hidden);
 }
 
 function cellRefToColumnIndex(ref) {
@@ -213,10 +218,10 @@ export async function readXlsxFile(file) {
   const sheets = parseWorkbook(files).map((sheet) => {
     const xml = textFromFile(files, sheet.path);
     if (!xml) {
-      return { name: sheet.name, headers: [], rows: [] };
+      return { name: sheet.name, state: sheet.state, hidden: sheet.hidden, headers: [], rows: [], rawRows: [] };
     }
     const parsed = sheetXmlToRows(xml, sharedStrings);
-    return { name: sheet.name, ...parsed };
+    return { name: sheet.name, state: sheet.state, hidden: sheet.hidden, ...parsed };
   });
 
   return {

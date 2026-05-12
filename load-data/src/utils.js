@@ -62,7 +62,22 @@ export function findSheetByName(workbook, sheetNameSpec) {
     return normalizeText(spec);
   });
 
-  return workbook.sheets.find((sheet) => {
+  const eligibleSheets = workbook.sheets.filter((sheet) => {
+    if (sheet.hidden) return false;
+    const normalizedSheetName = normalizeText(sheet.name);
+    return !normalizedSheetName.match(/(?:^|[\s_-])old$/) && !normalizedSheetName.includes("(old)");
+  });
+
+  const exactMatch = eligibleSheets.find((sheet) => {
+    const normalizedSheetName = normalizeText(sheet.name);
+    return normalizedSpecs.some((spec) => {
+      if (spec instanceof RegExp) return spec.test(sheet.name);
+      return normalizedSheetName === spec;
+    });
+  });
+  if (exactMatch) return exactMatch;
+
+  return eligibleSheets.find((sheet) => {
     const normalizedSheetName = normalizeText(sheet.name);
     return normalizedSpecs.some((spec) => {
       if (spec instanceof RegExp) return spec.test(sheet.name);
