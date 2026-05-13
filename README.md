@@ -134,3 +134,21 @@ Si un onglet commence par deux lignes de titre fusionnées et que les vrais noms
 Si les colonnes attendues ne sont pas trouvées, l’import échoue maintenant explicitement avec les en-têtes détectés et les colonnes attendues.
 
 `pathCodeColumns` est optionnel. Il sert à extraire le préfixe numérique des colonnes de nom long, par exemple `3.1.1 Enterprise Enabling / ...`, puis à le conserver dans `meta.code` dans `storage-data.json`. Sans ces colonnes, les capacités restent exploitables mais l’affichage dataviz ne peut pas préfixer le libellé par le code.
+
+### Validation des mappings de capacités
+
+Les mappings applicatifs vers des capacités métier sont validés contre les capacités chargées depuis `hierarchySheets`.
+
+Le loader normalise les valeurs avant validation:
+
+- trim des espaces en début/fin,
+- réduction des espaces multiples,
+- support de `2.4 Product and Service Enabling / Investment Portfolio Management`,
+- support de `2.4 - Product and Service Enabling/Investment Portfolio Management`.
+
+Si le code ou le chemin normalisé existe dans la hiérarchie, le mapping réutilise le nœud existant. Sinon, le loader ajoute un warning visible dans l’IHM et crée quand même un nœud depuis le mapping pour ne pas bloquer l’import. Un warning de ce type indique généralement:
+
+- un niveau plus profond dans le mapping que dans l’onglet de hiérarchie,
+- un libellé différent,
+- un code absent ou incorrect,
+- un séparateur ou une colonne de mapping mal configurée.

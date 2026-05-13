@@ -18,8 +18,18 @@ function resolveColumns(headers, spec, fields) {
 function splitMappingValues(value) {
   return String(value ?? "")
     .split(",")
-    .map((part) => part.trim())
+    .map((part) => cleanCellText(part))
     .filter(Boolean);
+}
+
+function cleanCellText(value) {
+  return String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function stripLeadingCapabilityCode(value) {
+  return cleanCellText(value).replace(/^\d+(?:\.\d+)*\s*(?:-\s*)?/, "").trim();
 }
 
 function rowToHeaders(row) {
@@ -114,8 +124,8 @@ function wrapRowError(error, { workbookName, sheet, row, rowIndex, phase }) {
 }
 
 function extractLeadingCode(value) {
-  const text = String(value ?? "").trim();
-  return text.match(/^(\d+(?:\.\d+)*)\s+/)?.[1] ?? "";
+  const text = cleanCellText(value);
+  return text.match(/^(\d+(?:\.\d+)*)\s*(?:-|\s|$)/)?.[1] ?? "";
 }
 
 function codeAtLevel(code, levelIndex) {
@@ -126,18 +136,18 @@ function codeAtLevel(code, levelIndex) {
 
 function pathEntriesFromLabels(labels, deepestCode = "") {
   return labels.map((label, index) => ({
-    label,
+    label: cleanCellText(label),
     code: codeAtLevel(deepestCode, index),
   }));
 }
 
 function parseBusinessCapabilityPath(value) {
-  const text = String(value ?? "").trim();
+  const text = cleanCellText(value);
   if (!text) return [];
   const code = extractLeadingCode(text);
-  const withoutCode = text.replace(/^\d+(?:\.\d+)*\s+/, "").trim();
-  const labels = withoutCode.includes(" / ")
-    ? withoutCode.split(" / ").map((part) => part.trim()).filter(Boolean)
+  const withoutCode = stripLeadingCapabilityCode(text);
+  const labels = withoutCode.includes("/")
+    ? withoutCode.split(/\s*\/\s*/).map((part) => cleanCellText(part)).filter(Boolean)
     : [withoutCode];
   return pathEntriesFromLabels(labels, code);
 }
@@ -145,12 +155,12 @@ function parseBusinessCapabilityPath(value) {
 function normalizePathEntry(value) {
   if (typeof value === "object" && value !== null) {
     return {
-      label: String(value.label ?? "").trim(),
-      code: String(value.code ?? "").trim(),
+      label: cleanCellText(value.label),
+      code: cleanCellText(value.code),
     };
   }
   return {
-    label: String(value ?? "").trim(),
+    label: cleanCellText(value),
     code: "",
   };
 }
@@ -166,11 +176,11 @@ function deepestCodeForRow(row, codeHeaders) {
 }
 
 function parseBusinessCapabilityPathLegacy(value) {
-  const text = String(value ?? "").trim();
+  const text = cleanCellText(value);
   if (!text) return [];
-  const withoutCode = text.replace(/^\d+(?:\.\d+)*\s+/, "").trim();
-  if (withoutCode.includes(" / ")) {
-    return withoutCode.split(" / ").map((part) => part.trim()).filter(Boolean);
+  const withoutCode = stripLeadingCapabilityCode(text);
+  if (withoutCode.includes("/")) {
+    return withoutCode.split(/\s*\/\s*/).map((part) => cleanCellText(part)).filter(Boolean);
   }
   return [withoutCode];
 }
@@ -180,6 +190,7 @@ class GraphBuilder {
     this.graph = graph;
     this.labelIndex = new Map();
     this.pathIndex = new Map();
+    this.codeIndex = new Map();
   }
 
   indexLabel(kind, label, key) {
@@ -196,6 +207,13 @@ class GraphBuilder {
   indexPath(kind, pathKey, key) {
     if (!this.pathIndex.has(kind)) this.pathIndex.set(kind, new Map());
     this.pathIndex.get(kind).set(pathKey, key);
+  }
+
+  indexCode(kind, code, key) {
+    const normalizedCode = cleanCellText(code);
+    if (!normalizedCode) return;
+    if (!this.codeIndex.has(kind)) this.codeIndex.set(kind, new Map());
+    this.codeIndex.get(kind).set(normalizedCode, key);
   }
 
   resolveByLabel(kind, label) {
@@ -236,6 +254,7 @@ class GraphBuilder {
       if (currentNode && entry.code && currentNode.meta?.code !== entry.code) {
         currentNode.meta = { ...currentNode.meta, code: entry.code };
       }
+      if (entry.code) this.indexCode(kind, entry.code, currentNode.key);
       if (currentParentKey && currentParentKey !== currentNode.key) {
         const exists = this.graph.getOutgoing(currentParentKey, "contains").some((edge) => edge.target === currentNode.key);
         if (!exists) {
@@ -245,6 +264,30 @@ class GraphBuilder {
       currentParentKey = currentNode.key;
     }
     return currentNode;
+  }
+
+  resolveHierarchyPath(kind, labels) {
+    const entries = labels.map((value) => normalizePathEntry(value)).filter((entry) => entry.label);
+    const deepestCode = entries.at(-1)?.code;
+    if (deepestCode) {
+      const byCode = this.codeIndex.get(kind)?.get(deepestCode);
+      if (byCode) return this.graph.getNode(byCode);
+    }
+    const pathKey = stableKey([kind, ...entries.map((entry) => entry.label)]);
+    const byPath = this.pathIndex.get(kind)?.get(pathKey);
+    return byPath ? this.graph.getNode(byPath) : null;
+  }
+
+  ensureValidatedBusinessCapabilityPath(labels, meta, warnings) {
+    const existing = this.resolveHierarchyPath("businessCapacity", labels);
+    if (existing) return existing;
+    const formatted = labels.map((value) => normalizePathEntry(value).label).filter(Boolean).join(" / ");
+    warnings.push([
+      `Row ${meta.rowIndex} in ${meta.sourceSheet}: business capability mapping not found in hierarchySheets.`,
+      `Value: "${formatted}".`,
+      `A new node was created from mapping data; check separators, code, and labels.`,
+    ].join(" "));
+    return this.ensureHierarchyPath("businessCapacity", labels, meta, null);
   }
 
   ensureLabelNode(kind, label, meta = {}) {
@@ -283,7 +326,7 @@ function ingestHierarchySheet(builder, workbookName, sheet, spec, warnings) {
     try {
       const excelRowNumber = rowNumber(row, rowIndex + 2);
       const meta = { sourceWorkbook: workbookName, sourceSheet: sheet.name, rowIndex: excelRowNumber };
-      const pathValues = pathHeaders.map((header) => (header ? String(row[header] ?? "").trim() : "")).filter(Boolean);
+      const pathValues = pathHeaders.map((header) => (header ? cleanCellText(row[header]) : "")).filter(Boolean);
       const deepestCode = deepestCodeForRow(row, codeHeaders);
       if (pathValues.length) {
         builder.ensureHierarchyPath(spec.nodeKind ?? "businessCapacity", pathEntriesFromLabels(pathValues, deepestCode), meta);
@@ -298,16 +341,16 @@ function targetNodesFromRow(builder, row, spec, meta, warnings) {
   const kindHeader = spec.targetKindColumn ? matchHeader(Object.keys(row), spec.targetKindColumn) : null;
   const labelHeader = spec.targetLabelColumn ? matchHeader(Object.keys(row), spec.targetLabelColumn) : null;
   const pathHeaders = (spec.targetPathColumns ?? []).map((aliases) => matchHeader(Object.keys(row), aliases));
-  const rawKind = kindHeader ? String(row[kindHeader] ?? "").trim() : "";
+  const rawKind = kindHeader ? cleanCellText(row[kindHeader]) : "";
   const kind = normalizeNodeKind(rawKind || spec.defaultTargetKind || "businessCapacity");
-  const label = labelHeader ? String(row[labelHeader] ?? "").trim() : "";
+  const label = labelHeader ? cleanCellText(row[labelHeader]) : "";
   const pathValues = pathHeaders.flatMap((header) => (header ? splitMappingValues(row[header]) : []));
 
   if (kind === "businessCapacity" && pathValues.length) {
     return pathValues
       .map((value) => parseBusinessCapabilityPath(value))
       .filter((path) => path.length)
-      .map((path) => builder.ensureHierarchyPath("businessCapacity", path, meta, null));
+      .map((path) => builder.ensureValidatedBusinessCapabilityPath(path, meta, warnings));
   }
 
   if ((kind === "domain" || kind === "regulation" || kind === "application" || kind === "entity") && label) {
@@ -318,7 +361,9 @@ function targetNodesFromRow(builder, row, spec, meta, warnings) {
     return pathValues
       .map((value) => kind === "businessCapacity" ? parseBusinessCapabilityPath(value) : parseBusinessCapabilityPathLegacy(value))
       .filter((path) => path.length)
-      .map((path) => builder.ensureHierarchyPath(kind, path, meta, null));
+      .map((path) => kind === "businessCapacity"
+        ? builder.ensureValidatedBusinessCapabilityPath(path, meta, warnings)
+        : builder.ensureHierarchyPath(kind, path, meta, null));
   }
 
   if (label) {
@@ -343,14 +388,14 @@ function ingestMappingSheet(builder, workbookName, sheet, spec, warnings) {
     try {
       const excelRowNumber = rowNumber(row, rowIndex + 2);
       const meta = { sourceWorkbook: workbookName, sourceSheet: sheet.name, rowIndex: excelRowNumber };
-      const applicationCode = applicationCodeHeader ? String(row[applicationCodeHeader] ?? "").trim() : "";
-      const applicationName = applicationNameHeader ? String(row[applicationNameHeader] ?? "").trim() : "";
-      let applicationLabel = applicationHeader ? String(row[applicationHeader] ?? "").trim() : "";
+      const applicationCode = applicationCodeHeader ? cleanCellText(row[applicationCodeHeader]) : "";
+      const applicationName = applicationNameHeader ? cleanCellText(row[applicationNameHeader]) : "";
+      let applicationLabel = applicationHeader ? cleanCellText(row[applicationHeader]) : "";
       if (!applicationLabel && applicationName) applicationLabel = applicationName;
       if (!applicationLabel && applicationCode) applicationLabel = applicationCode;
       if (!applicationLabel && !applicationCode) continue;
 
-      const entityLabel = spec.entityValue ? String(spec.entityValue).trim() : (entityHeader ? String(row[entityHeader] ?? "").trim() : "");
+      const entityLabel = spec.entityValue ? cleanCellText(spec.entityValue) : (entityHeader ? cleanCellText(row[entityHeader]) : "");
       const appNode = builder.ensureApplication(applicationLabel || applicationCode, {
         ...meta,
         nodeId: applicationCode || applicationLabel,
@@ -387,6 +432,11 @@ export function buildGraphFromWorkbooks(workbooks, config) {
           ingestHierarchySheet(builder, workbook.name, sheetForSpec(sheet, spec), spec, warnings);
         }
       }
+    }
+  }
+
+  for (const workbook of workbooks) {
+    for (const sheet of workbook.sheets) {
       for (const spec of config.mappingSheets ?? []) {
         if (findSheetByName({ sheets: [sheet] }, spec.sheetName)) {
           ingestMappingSheet(builder, workbook.name, sheetForSpec(sheet, spec), spec, warnings);
