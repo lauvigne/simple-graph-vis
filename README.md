@@ -145,6 +145,9 @@ Le loader normalise les valeurs avant validation:
 - réduction des espaces multiples,
 - support de `2.4 Product and Service Enabling / Investment Portfolio Management`,
 - support de `2.4 - Product and Service Enabling/Investment Portfolio Management`.
+- pour les colonnes `BIAN L2` et `BIAN L3`, découpage des valeurs multiples par détection de codes (`2.4`, `2.4.1`) plutôt que par simple virgule.
+
+Cette règle évite de casser les libellés qui contiennent eux-mêmes des virgules ou des slashs, par exemple `Product, Pricing / Billing`.
 
 Si le code ou le chemin normalisé existe dans la hiérarchie, le mapping réutilise le nœud existant. Sinon, le loader ajoute un warning visible dans l’IHM et crée quand même un nœud depuis le mapping pour ne pas bloquer l’import. Un warning de ce type indique généralement:
 

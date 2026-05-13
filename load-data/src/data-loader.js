@@ -1,25 +1,49 @@
 import { TypedGraph, normalizeGraphId } from "./graph.js";
 import { findSheetByName, matchHeader, normalizeText, stableKey } from "./utils.js";
 
-function readRowValue(row, candidates) {
-  const header = matchHeader(Object.keys(row), candidates);
-  if (!header) return "";
-  return String(row[header] ?? "").trim();
-}
-
-function resolveColumns(headers, spec, fields) {
-  const resolved = {};
-  for (const field of fields) {
-    resolved[field] = matchHeader(headers, spec[field]) ?? null;
+function splitCellValues(value, codeDepth = null) {
+  if (codeDepth) {
+    const values = splitCellValuesByCode(value, codeDepth);
+    if (values.length) return values;
   }
-  return resolved;
-}
-
-function splitMappingValues(value) {
   return String(value ?? "")
     .split(",")
     .map((part) => cleanCellText(part))
     .filter(Boolean);
+}
+
+function splitCellValuesByCode(value, codeDepth) {
+  const text = cleanCellText(value);
+  if (!text) return [];
+  const codePattern = codeDepth === 2
+    ? "\\d+\\.\\d+"
+    : `\\d+\\.\\d+(?:\\.\\d+){${codeDepth - 2}}`;
+  const regex = new RegExp(`(^|[^\\d.])(${codePattern})(?![\\d.])`, "g");
+  const matches = [];
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    matches.push({
+      index: match.index + match[1].length,
+      code: match[2],
+    });
+  }
+  if (!matches.length) return [];
+  return matches
+    .map((current, index) => {
+      const next = matches[index + 1];
+      return cleanCellText(text.slice(current.index, next?.index ?? text.length)
+        .replace(/^[,;\s]+/, "")
+        .replace(/[,;\s]+$/, ""));
+    })
+    .filter(Boolean);
+}
+
+function expectedBusinessCapabilityCodeDepth(header, aliases) {
+  const candidates = [header, ...(Array.isArray(aliases) ? aliases.flat() : [aliases])]
+    .map((value) => normalizeText(value));
+  if (candidates.some((value) => /\b(?:l3|level 3|niveau 3)\b/.test(value))) return 3;
+  if (candidates.some((value) => /\b(?:l2|level 2|niveau 2)\b/.test(value))) return 2;
+  return null;
 }
 
 function cleanCellText(value) {
@@ -185,6 +209,30 @@ function parseBusinessCapabilityPathLegacy(value) {
   return [withoutCode];
 }
 
+function parsePathForKind(kind, value) {
+  return kind === "businessCapacity"
+    ? parseBusinessCapabilityPath(value)
+    : parseBusinessCapabilityPathLegacy(value);
+}
+
+function resolveTargetPathSpecs(headers, targetPathColumns = []) {
+  return targetPathColumns.map((aliases) => {
+    const header = matchHeader(headers, aliases);
+    return {
+      aliases,
+      header,
+      codeDepth: expectedBusinessCapabilityCodeDepth(header, aliases),
+    };
+  });
+}
+
+function targetPathValues(row, kind, pathSpecs) {
+  return pathSpecs.flatMap(({ header, codeDepth }) => {
+    if (!header) return [];
+    return splitCellValues(row[header], kind === "businessCapacity" ? codeDepth : null);
+  });
+}
+
 class GraphBuilder {
   constructor(graph) {
     this.graph = graph;
@@ -268,7 +316,7 @@ class GraphBuilder {
 
   resolveHierarchyPath(kind, labels) {
     const entries = labels.map((value) => normalizePathEntry(value)).filter((entry) => entry.label);
-    const deepestCode = entries.at(-1)?.code;
+    const deepestCode = [...entries].reverse().find((entry) => entry.code)?.code;
     if (deepestCode) {
       const byCode = this.codeIndex.get(kind)?.get(deepestCode);
       if (byCode) return this.graph.getNode(byCode);
@@ -340,26 +388,15 @@ function ingestHierarchySheet(builder, workbookName, sheet, spec, warnings) {
 function targetNodesFromRow(builder, row, spec, meta, warnings) {
   const kindHeader = spec.targetKindColumn ? matchHeader(Object.keys(row), spec.targetKindColumn) : null;
   const labelHeader = spec.targetLabelColumn ? matchHeader(Object.keys(row), spec.targetLabelColumn) : null;
-  const pathHeaders = (spec.targetPathColumns ?? []).map((aliases) => matchHeader(Object.keys(row), aliases));
   const rawKind = kindHeader ? cleanCellText(row[kindHeader]) : "";
   const kind = normalizeNodeKind(rawKind || spec.defaultTargetKind || "businessCapacity");
   const label = labelHeader ? cleanCellText(row[labelHeader]) : "";
-  const pathValues = pathHeaders.flatMap((header) => (header ? splitMappingValues(row[header]) : []));
-
-  if (kind === "businessCapacity" && pathValues.length) {
-    return pathValues
-      .map((value) => parseBusinessCapabilityPath(value))
-      .filter((path) => path.length)
-      .map((path) => builder.ensureValidatedBusinessCapabilityPath(path, meta, warnings));
-  }
-
-  if ((kind === "domain" || kind === "regulation" || kind === "application" || kind === "entity") && label) {
-    return [builder.ensureLabelNode(kind, label, meta)];
-  }
+  const pathSpecs = resolveTargetPathSpecs(Object.keys(row), spec.targetPathColumns ?? []);
+  const pathValues = targetPathValues(row, kind, pathSpecs);
 
   if (pathValues.length) {
     return pathValues
-      .map((value) => kind === "businessCapacity" ? parseBusinessCapabilityPath(value) : parseBusinessCapabilityPathLegacy(value))
+      .map((value) => parsePathForKind(kind, value))
       .filter((path) => path.length)
       .map((path) => kind === "businessCapacity"
         ? builder.ensureValidatedBusinessCapabilityPath(path, meta, warnings)
@@ -420,30 +457,29 @@ function ingestMappingSheet(builder, workbookName, sheet, spec, warnings) {
   }
 }
 
+function ingestConfiguredSheets(workbooks, specs, ingestSheet) {
+  for (const workbook of workbooks) {
+    for (const sheet of workbook.sheets) {
+      for (const spec of specs ?? []) {
+        if (findSheetByName({ sheets: [sheet] }, spec.sheetName)) {
+          ingestSheet(workbook.name, sheetForSpec(sheet, spec), spec);
+        }
+      }
+    }
+  }
+}
+
 export function buildGraphFromWorkbooks(workbooks, config) {
   const graph = new TypedGraph();
   const builder = new GraphBuilder(graph);
   const warnings = [];
 
-  for (const workbook of workbooks) {
-    for (const sheet of workbook.sheets) {
-      for (const spec of config.hierarchySheets ?? []) {
-        if (findSheetByName({ sheets: [sheet] }, spec.sheetName)) {
-          ingestHierarchySheet(builder, workbook.name, sheetForSpec(sheet, spec), spec, warnings);
-        }
-      }
-    }
-  }
-
-  for (const workbook of workbooks) {
-    for (const sheet of workbook.sheets) {
-      for (const spec of config.mappingSheets ?? []) {
-        if (findSheetByName({ sheets: [sheet] }, spec.sheetName)) {
-          ingestMappingSheet(builder, workbook.name, sheetForSpec(sheet, spec), spec, warnings);
-        }
-      }
-    }
-  }
+  ingestConfiguredSheets(workbooks, config.hierarchySheets, (workbookName, sheet, spec) => {
+    ingestHierarchySheet(builder, workbookName, sheet, spec, warnings);
+  });
+  ingestConfiguredSheets(workbooks, config.mappingSheets, (workbookName, sheet, spec) => {
+    ingestMappingSheet(builder, workbookName, sheet, spec, warnings);
+  });
 
   return { graph, warnings, summary: graph.summary() };
 }
