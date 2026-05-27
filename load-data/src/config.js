@@ -1,3 +1,10 @@
+const entitySpecs = [
+  { entityValue: "E1", entityLabel: "Entity 1" },
+  { entityValue: "E2", entityLabel: "Entity 2" },
+  { entityValue: "E3", entityLabel: "Entity 3" },
+  { entityValue: "E4", entityLabel: "Entity 4" },
+];
+
 export const defaultConfig = {
   hierarchySheets: [
     {
@@ -21,12 +28,12 @@ export const defaultConfig = {
     },
   ],
   mappingSheets: [
-    {
-      sheetName: ["E1-BCM"],
+    ...entitySpecs.map(({ entityValue, entityLabel }) => ({
+      sheetName: [`${entityValue}-BCM`],
       applicationCodeColumn: ["Application Code"],
       applicationColumn: ["Application Display Name"],
       applicationNameColumn: ["Application Name"],
-      entityValue: "E1",
+      entityValue: entityLabel,
       // BIAN L2 / BIAN L3 contain long path values, for example:
       // "3.1 Enterprise Enabling / Facility and Equipment Management".
       // The loader strips the numeric prefix and splits on " / ".
@@ -35,43 +42,7 @@ export const defaultConfig = {
         ["BIAN L3"],
       ],
       defaultTargetKind: "businessCapacity",
-    },
-    {
-      sheetName: ["E2-BCM"],
-      applicationCodeColumn: ["Application Code"],
-      applicationColumn: ["Application Display Name"],
-      applicationNameColumn: ["Application Name"],
-      entityValue: "E2",
-      targetPathColumns: [
-        ["BIAN L2"],
-        ["BIAN L3"],
-      ],
-      defaultTargetKind: "businessCapacity",
-    },
-    {
-      sheetName: ["E3-BCM"],
-      applicationCodeColumn: ["Application Code"],
-      applicationColumn: ["Application Display Name"],
-      applicationNameColumn: ["Application Name"],
-      entityValue: "E3",
-      targetPathColumns: [
-        ["BIAN L2"],
-        ["BIAN L3"],
-      ],
-      defaultTargetKind: "businessCapacity",
-    },
-    {
-      sheetName: ["E4-BCM"],
-      applicationCodeColumn: ["Application Code"],
-      applicationColumn: ["Application Display Name"],
-      applicationNameColumn: ["Application Name"],
-      entityValue: "E4",
-      targetPathColumns: [
-        ["BIAN L2"],
-        ["BIAN L3"],
-      ],
-      defaultTargetKind: "businessCapacity",
-    },
+    })),
   ],
 };
 

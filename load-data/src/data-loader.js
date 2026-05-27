@@ -1,6 +1,20 @@
 import { TypedGraph, normalizeGraphId } from "./graph.js";
 import { findSheetByName, matchHeader, normalizeText, stableKey } from "./utils.js";
 
+const EDGE_TYPES = {
+  CONTAINS: "contains",
+  BELONGS_TO: "belongs_to",
+  MAPPED_TO: "mapped_to",
+};
+
+const NODE_KINDS = {
+  BUSINESS_CAPACITY: "businessCapacity",
+  DOMAIN: "domain",
+  REGULATION: "regulation",
+  APPLICATION: "application",
+  ENTITY: "entity",
+};
+
 function splitCellValues(value, codeDepth = null) {
   if (codeDepth) {
     const values = splitCellValuesByCode(value, codeDepth);
@@ -63,22 +77,21 @@ function rowToHeaders(row) {
 function rowsFromHeaderRow(rawRows, headerRow = 1) {
   const headerIndex = Math.max(0, Number(headerRow || 1) - 1);
   const headers = rowToHeaders(rawRows[headerIndex]);
-  const rows = rawRows
-    .slice(headerIndex + 1)
-    .map((row, index) => ({ row, rowNumber: headerIndex + index + 2 }))
-    .filter(({ row }) => row.some((value) => String(value ?? "").trim() !== ""))
-    .map(({ row, rowNumber }) => {
-      const record = {};
-      headers.forEach((header, index) => {
-        if (!header) return;
-        record[header] = row[index] ?? "";
-      });
-      Object.defineProperty(record, "__rowNumber", {
-        value: rowNumber,
-        enumerable: false,
-      });
-      return record;
+  const rows = [];
+  for (let i = headerIndex + 1; i < rawRows.length; i++) {
+    const row = rawRows[i];
+    if (!row.some((value) => String(value ?? "").trim() !== "")) continue;
+    const record = {};
+    headers.forEach((header, index) => {
+      if (!header) return;
+      record[header] = row[index] ?? "";
     });
+    Object.defineProperty(record, "__rowNumber", {
+      value: i + 1,
+      enumerable: false,
+    });
+    rows.push(record);
+  }
   return { headers, rows };
 }
 
@@ -170,9 +183,7 @@ function parseBusinessCapabilityPath(value) {
   if (!text) return [];
   const code = extractLeadingCode(text);
   const withoutCode = stripLeadingCapabilityCode(text);
-  const labels = withoutCode.includes("/")
-    ? withoutCode.split(/\s*\/\s*/).map((part) => cleanCellText(part)).filter(Boolean)
-    : [withoutCode];
+  const labels = splitPathBySlash(withoutCode);
   return pathEntriesFromLabels(labels, code);
 }
 
@@ -199,18 +210,21 @@ function deepestCodeForRow(row, codeHeaders) {
   return "";
 }
 
+function splitPathBySlash(text) {
+  return text.includes("/")
+    ? text.split(/\s*\/\s*/).map((part) => cleanCellText(part)).filter(Boolean)
+    : [text];
+}
+
 function parseBusinessCapabilityPathLegacy(value) {
   const text = cleanCellText(value);
   if (!text) return [];
   const withoutCode = stripLeadingCapabilityCode(text);
-  if (withoutCode.includes("/")) {
-    return withoutCode.split(/\s*\/\s*/).map((part) => cleanCellText(part)).filter(Boolean);
-  }
-  return [withoutCode];
+  return splitPathBySlash(withoutCode);
 }
 
 function parsePathForKind(kind, value) {
-  return kind === "businessCapacity"
+  return kind === NODE_KINDS.BUSINESS_CAPACITY
     ? parseBusinessCapabilityPath(value)
     : parseBusinessCapabilityPathLegacy(value);
 }
@@ -229,7 +243,7 @@ function resolveTargetPathSpecs(headers, targetPathColumns = []) {
 function targetPathValues(row, kind, pathSpecs) {
   return pathSpecs.flatMap(({ header, codeDepth }) => {
     if (!header) return [];
-    return splitCellValues(row[header], kind === "businessCapacity" ? codeDepth : null);
+    return splitCellValues(row[header], kind === NODE_KINDS.BUSINESS_CAPACITY ? codeDepth : null);
   });
 }
 
@@ -304,9 +318,9 @@ class GraphBuilder {
       }
       if (entry.code) this.indexCode(kind, entry.code, currentNode.key);
       if (currentParentKey && currentParentKey !== currentNode.key) {
-        const exists = this.graph.getOutgoing(currentParentKey, "contains").some((edge) => edge.target === currentNode.key);
+        const exists = this.graph.getOutgoing(currentParentKey, EDGE_TYPES.CONTAINS).some((edge) => edge.target === currentNode.key);
         if (!exists) {
-          this.graph.addEdge(currentParentKey, currentNode.key, "contains", meta);
+          this.graph.addEdge(currentParentKey, currentNode.key, EDGE_TYPES.CONTAINS, meta);
         }
       }
       currentParentKey = currentNode.key;
@@ -316,7 +330,13 @@ class GraphBuilder {
 
   resolveHierarchyPath(kind, labels) {
     const entries = labels.map((value) => normalizePathEntry(value)).filter((entry) => entry.label);
-    const deepestCode = [...entries].reverse().find((entry) => entry.code)?.code;
+    let deepestCode = null;
+    for (let i = entries.length - 1; i >= 0; i--) {
+      if (entries[i].code) {
+        deepestCode = entries[i].code;
+        break;
+      }
+    }
     if (deepestCode) {
       const byCode = this.codeIndex.get(kind)?.get(deepestCode);
       if (byCode) return this.graph.getNode(byCode);
@@ -327,7 +347,7 @@ class GraphBuilder {
   }
 
   ensureValidatedBusinessCapabilityPath(labels, meta, warnings) {
-    const existing = this.resolveHierarchyPath("businessCapacity", labels);
+    const existing = this.resolveHierarchyPath(NODE_KINDS.BUSINESS_CAPACITY, labels);
     if (existing) return existing;
     const formatted = labels.map((value) => normalizePathEntry(value).label).filter(Boolean).join(" / ");
     warnings.push([
@@ -335,7 +355,7 @@ class GraphBuilder {
       `Value: "${formatted}".`,
       `A new node was created from mapping data; check separators, code, and labels.`,
     ].join(" "));
-    return this.ensureHierarchyPath("businessCapacity", labels, meta, null);
+    return this.ensureHierarchyPath(NODE_KINDS.BUSINESS_CAPACITY, labels, meta, null);
   }
 
   ensureLabelNode(kind, label, meta = {}) {
@@ -347,12 +367,12 @@ class GraphBuilder {
 
 function normalizeNodeKind(value) {
   const text = normalizeText(value);
-  if (!text) return "businessCapacity";
-  if (text.includes("business") || text.includes("capacity")) return "businessCapacity";
-  if (text.includes("domain")) return "domain";
-  if (text.includes("regulation") || text.includes("rglmnt")) return "regulation";
-  if (text.includes("application") || text === "app") return "application";
-  if (text.includes("entity")) return "entity";
+  if (!text) return NODE_KINDS.BUSINESS_CAPACITY;
+  if (text.includes("business") || text.includes("capacity")) return NODE_KINDS.BUSINESS_CAPACITY;
+  if (text.includes("domain")) return NODE_KINDS.DOMAIN;
+  if (text.includes("regulation") || text.includes("rglmnt")) return NODE_KINDS.REGULATION;
+  if (text.includes("application") || text === "app") return NODE_KINDS.APPLICATION;
+  if (text.includes("entity")) return NODE_KINDS.ENTITY;
   return normalizeGraphId(value) || "node";
 }
 
@@ -377,7 +397,7 @@ function ingestHierarchySheet(builder, workbookName, sheet, spec, warnings) {
       const pathValues = pathHeaders.map((header) => (header ? cleanCellText(row[header]) : "")).filter(Boolean);
       const deepestCode = deepestCodeForRow(row, codeHeaders);
       if (pathValues.length) {
-        builder.ensureHierarchyPath(spec.nodeKind ?? "businessCapacity", pathEntriesFromLabels(pathValues, deepestCode), meta);
+        builder.ensureHierarchyPath(spec.nodeKind ?? NODE_KINDS.BUSINESS_CAPACITY, pathEntriesFromLabels(pathValues, deepestCode), meta);
       }
     } catch (error) {
       throw wrapRowError(error, { workbookName, sheet, row, rowIndex, phase: "ingesting hierarchy row" });
@@ -385,20 +405,19 @@ function ingestHierarchySheet(builder, workbookName, sheet, spec, warnings) {
   }
 }
 
-function targetNodesFromRow(builder, row, spec, meta, warnings) {
+function targetNodesFromRow(builder, row, spec, meta, warnings, pathSpecs) {
   const kindHeader = spec.targetKindColumn ? matchHeader(Object.keys(row), spec.targetKindColumn) : null;
   const labelHeader = spec.targetLabelColumn ? matchHeader(Object.keys(row), spec.targetLabelColumn) : null;
   const rawKind = kindHeader ? cleanCellText(row[kindHeader]) : "";
-  const kind = normalizeNodeKind(rawKind || spec.defaultTargetKind || "businessCapacity");
+  const kind = normalizeNodeKind(rawKind || spec.defaultTargetKind || NODE_KINDS.BUSINESS_CAPACITY);
   const label = labelHeader ? cleanCellText(row[labelHeader]) : "";
-  const pathSpecs = resolveTargetPathSpecs(Object.keys(row), spec.targetPathColumns ?? []);
   const pathValues = targetPathValues(row, kind, pathSpecs);
 
   if (pathValues.length) {
     return pathValues
       .map((value) => parsePathForKind(kind, value))
       .filter((path) => path.length)
-      .map((path) => kind === "businessCapacity"
+      .map((path) => kind === NODE_KINDS.BUSINESS_CAPACITY
         ? builder.ensureValidatedBusinessCapabilityPath(path, meta, warnings)
         : builder.ensureHierarchyPath(kind, path, meta, null));
   }
@@ -420,6 +439,8 @@ function ingestMappingSheet(builder, workbookName, sheet, spec, warnings) {
     warnings.push(`Sheet "${sheet.name}" in ${workbookName}: application column not found.`);
     return;
   }
+
+  const pathSpecs = resolveTargetPathSpecs(sheet.headers, spec.targetPathColumns ?? []);
 
   for (const [rowIndex, row] of sheet.rows.entries()) {
     try {
@@ -443,13 +464,13 @@ function ingestMappingSheet(builder, workbookName, sheet, spec, warnings) {
 
       if (entityLabel) {
         const entityNode = builder.ensureEntity(entityLabel, meta);
-        const existing = builder.graph.getOutgoing(appNode.key, "belongs_to").some((edge) => edge.target === entityNode.key);
-        if (!existing) builder.graph.addEdge(appNode.key, entityNode.key, "belongs_to", meta);
+        const existing = builder.graph.getOutgoing(appNode.key, EDGE_TYPES.BELONGS_TO).some((edge) => edge.target === entityNode.key);
+        if (!existing) builder.graph.addEdge(appNode.key, entityNode.key, EDGE_TYPES.BELONGS_TO, meta);
       }
 
-      for (const targetNode of targetNodesFromRow(builder, row, spec, meta, warnings)) {
-        const existing = builder.graph.getOutgoing(appNode.key, "mapped_to").some((edge) => edge.target === targetNode.key);
-        if (!existing) builder.graph.addEdge(appNode.key, targetNode.key, "mapped_to", meta);
+      for (const targetNode of targetNodesFromRow(builder, row, spec, meta, warnings, pathSpecs)) {
+        const existing = builder.graph.getOutgoing(appNode.key, EDGE_TYPES.MAPPED_TO).some((edge) => edge.target === targetNode.key);
+        if (!existing) builder.graph.addEdge(appNode.key, targetNode.key, EDGE_TYPES.MAPPED_TO, meta);
       }
     } catch (error) {
       throw wrapRowError(error, { workbookName, sheet, row, rowIndex, phase: "ingesting mapping row" });
