@@ -62,13 +62,23 @@ def _(mo):
         selection_mode="file",
         multiple=False,
         restrict_navigation=False,
-        label="Fichier Excel",
+        label="Fichier Excel local",
+    )
+    excel_upload = mo.ui.file(filetypes=[".xlsx"], multiple=False, kind="button", label="Uploader un Excel")
+    source_tabs = mo.ui.tabs(
+        {
+            "Fichier local": mo.vstack([excel_browser]),
+            "Upload": mo.vstack([excel_upload]),
+        },
+        value="Fichier local",
+        lazy=True,
+        label="Source du fichier",
     )
     cache_dir = mo.ui.text(value="data", label="Dossier cache")
     purge_cache = mo.ui.checkbox(value=True, label="Purger le cache avant écriture")
     auto_refresh = mo.ui.checkbox(value=True, label="Écrire automatiquement le cache au chargement")
-    mo.vstack([excel_browser, cache_dir, purge_cache, auto_refresh])
-    return auto_refresh, cache_dir, excel_browser, purge_cache
+    mo.vstack([source_tabs, cache_dir, purge_cache, auto_refresh])
+    return auto_refresh, cache_dir, excel_browser, excel_upload, purge_cache, source_tabs
 
 
 @app.cell
@@ -78,9 +88,15 @@ def _(mo):
 
 
 @app.cell
-def _(Path, excel_browser, load_excel_model, sample_model):
+def _(NOTEBOOK_DIR, Path, excel_browser, excel_upload, load_excel_model, sample_model, source_tabs):
     selected_path = None
-    if excel_browser.value:
+    if source_tabs.value == "Upload" and excel_upload.value:
+        upload_dir = NOTEBOOK_DIR / ".uploads"
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        uploaded_name = Path(excel_upload.name()).name if excel_upload.name() else "uploaded.xlsx"
+        selected_path = upload_dir / uploaded_name
+        selected_path.write_bytes(excel_upload.contents())
+    elif source_tabs.value == "Fichier local" and excel_browser.value:
         selected_path = Path(excel_browser.path()).expanduser()
 
     if selected_path and selected_path.exists():
