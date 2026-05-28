@@ -56,12 +56,19 @@ def _(mo):
 
 @app.cell
 def _(mo):
-    excel_path = mo.ui.text(value="../bian_business_capabilities.xlsx", label="Fichier Excel")
+    excel_browser = mo.ui.file_browser(
+        initial_path="..",
+        filetypes=[".xlsx"],
+        selection_mode="file",
+        multiple=False,
+        restrict_navigation=False,
+        label="Fichier Excel",
+    )
     cache_dir = mo.ui.text(value="data", label="Dossier cache")
     purge_cache = mo.ui.checkbox(value=True, label="Purger le cache avant écriture")
     auto_refresh = mo.ui.checkbox(value=True, label="Écrire automatiquement le cache au chargement")
-    mo.vstack([excel_path, cache_dir, purge_cache, auto_refresh])
-    return auto_refresh, cache_dir, excel_path, purge_cache
+    mo.vstack([excel_browser, cache_dir, purge_cache, auto_refresh])
+    return auto_refresh, cache_dir, excel_browser, purge_cache
 
 
 @app.cell
@@ -71,14 +78,17 @@ def _(mo):
 
 
 @app.cell
-def _(Path, excel_path, load_excel_model, sample_model):
-    selected_path = Path(excel_path.value).expanduser()
-    if selected_path.exists():
+def _(Path, excel_browser, load_excel_model, sample_model):
+    selected_path = None
+    if excel_browser.value:
+        selected_path = Path(excel_browser.path()).expanduser()
+
+    if selected_path and selected_path.exists():
         model = load_excel_model(selected_path)
         data_source = str(selected_path)
     else:
         model = sample_model()
-        data_source = f"sample (missing file: {selected_path})"
+        data_source = f"sample (missing file: {selected_path or 'no file selected'})"
     return data_source, model
 
 
