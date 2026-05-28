@@ -22,7 +22,7 @@ def connect(base_dir: str | Path = "data"):
     except ImportError as exc:
         raise RuntimeError("Install duckdb with `pip install -r requirements.txt`.") from exc
 
-    base_path = Path(base_dir)
+    base_path = Path(base_dir).expanduser().resolve()
     base_path.mkdir(parents=True, exist_ok=True)
     (base_path / "files").mkdir(parents=True, exist_ok=True)
     con = duckdb.connect(str(base_path / "local.duckdb"))
@@ -47,7 +47,7 @@ def write_model(con, model: dict[str, pd.DataFrame]) -> None:
 
 
 def reset_storage(base_dir: str | Path = "data") -> None:
-    base_path = Path(base_dir)
+    base_path = Path(base_dir).expanduser().resolve()
     for filename in ("local.duckdb", "metadata.ducklake", "local.duckdb.wal"):
         path = base_path / filename
         if path.exists():
@@ -68,5 +68,22 @@ def load_model(con) -> dict[str, pd.DataFrame]:
 
 
 def storage_exists(base_dir: str | Path = "data") -> bool:
-    base_path = Path(base_dir)
-    return (base_path / "local.duckdb").exists()
+    base_path = Path(base_dir).expanduser().resolve()
+    db_path = base_path / "local.duckdb"
+    metadata_path = base_path / "metadata.ducklake"
+    if not db_path.exists() or not metadata_path.exists():
+        return False
+    try:
+        con = connect(base_path)
+    except Exception:
+        return False
+    try:
+        existing = {
+            row[0]
+            for row in con.execute(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'"
+            ).fetchall()
+        }
+        return set(TABLES).issubset(existing)
+    finally:
+        con.close()

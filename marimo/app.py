@@ -75,8 +75,9 @@ def _(mo):
     cache_dir = mo.ui.text(value="data", label="Dossier data")
     threshold = mo.ui.slider(start=0.1, stop=1.0, step=0.05, value=0.8, label="Seuil de couverture")
     scope_mode = mo.ui.dropdown(options=["all", "withinEntity", "crossEntity"], value="all", label="Périmètre")
-    mo.vstack([cache_dir, threshold, scope_mode])
-    return cache_dir, scope_mode, threshold
+    show_plots = mo.ui.switch(value=False, label="Afficher les graphiques avancés")
+    mo.vstack([cache_dir, threshold, scope_mode, show_plots])
+    return cache_dir, scope_mode, show_plots, threshold
 
 
 @app.cell
@@ -159,17 +160,22 @@ def _(model, query_candidates, scope_mode, threshold):
 
 
 @app.cell
-def _(build_capability_sunburst, model):
-    capability_sunburst = build_capability_sunburst(model)
-    capability_sunburst
-    return (capability_sunburst,)
-
-
-@app.cell
-def _(build_mapping_sankey, model):
-    mapping_sankey = build_mapping_sankey(model)
-    mapping_sankey
-    return (mapping_sankey,)
+def _(build_capability_sunburst, build_mapping_sankey, mo, model, show_plots):
+    if show_plots.value:
+        capability_sunburst = build_capability_sunburst(model)
+        mapping_sankey = build_mapping_sankey(model)
+        result = mo.ui.tabs(
+            {
+                "Sunburst": capability_sunburst,
+                "Sankey": mapping_sankey,
+            },
+            lazy=True,
+            value="Sunburst",
+            label="Graphiques",
+        )
+    else:
+        result = mo.md("Les graphiques avancés sont masqués. Active `Afficher les graphiques avancés` pour les ouvrir dans des onglets séparés.")
+    result
 
 
 if __name__ == "__main__":

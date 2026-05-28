@@ -59,8 +59,9 @@ def _(mo):
     excel_path = mo.ui.text(value="../bian_business_capabilities.xlsx", label="Fichier Excel")
     cache_dir = mo.ui.text(value="data", label="Dossier cache")
     purge_cache = mo.ui.checkbox(value=True, label="Purger le cache avant écriture")
-    mo.vstack([excel_path, cache_dir, purge_cache])
-    return cache_dir, excel_path, purge_cache
+    auto_refresh = mo.ui.checkbox(value=True, label="Écrire automatiquement le cache au chargement")
+    mo.vstack([excel_path, cache_dir, purge_cache, auto_refresh])
+    return auto_refresh, cache_dir, excel_path, purge_cache
 
 
 @app.cell
@@ -82,8 +83,8 @@ def _(Path, excel_path, load_excel_model, sample_model):
 
 
 @app.cell
-def _(NOTEBOOK_DIR, Path, cache_dir, connect, data_source, mo, model, purge_cache, reset_storage, set_status, write_model):
-    def _refresh_cache(_event: object) -> None:
+def _(NOTEBOOK_DIR, Path, auto_refresh, cache_dir, connect, data_source, mo, model, purge_cache, reset_storage, set_status, write_model):
+    def _write_cache() -> None:
         cache_path = Path(cache_dir.value).expanduser()
         if not cache_path.is_absolute():
             cache_path = (NOTEBOOK_DIR / cache_path).resolve()
@@ -95,6 +96,12 @@ def _(NOTEBOOK_DIR, Path, cache_dir, connect, data_source, mo, model, purge_cach
         finally:
             con.close()
         set_status(f"Cache écrit dans {cache_path.resolve()} depuis {data_source}")
+
+    if auto_refresh.value:
+        _write_cache()
+
+    def _refresh_cache(_event: object) -> None:
+        _write_cache()
 
     refresh_button = mo.ui.button(
         label="Refresh cache",

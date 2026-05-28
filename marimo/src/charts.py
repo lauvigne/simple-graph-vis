@@ -14,12 +14,14 @@ def capability_sunburst(capabilities: pd.DataFrame):
     if frame.empty:
         return go.Figure().update_layout(title="No business capabilities loaded")
     frame["metric"] = 1
-    return px.sunburst(
+    fig = px.sunburst(
         frame,
         path=["path_l1", "path_l2", "path_l3"],
         values="metric",
         title="Business capabilities",
     )
+    fig.update_layout(height=900, margin=dict(l=10, r=10, t=60, b=10), uniformtext=dict(minsize=10, mode="hide"))
+    return fig
 
 
 def application_capability_sankey(model: dict[str, pd.DataFrame], limit: int = 200):
@@ -35,7 +37,7 @@ def application_capability_sankey(model: dict[str, pd.DataFrame], limit: int = 2
     data = bridge.merge(capabilities, left_on="capability_code", right_on="code", how="left")
     labels = list(dict.fromkeys([*data["application_code"], *data["label"]]))
     index = {label: i for i, label in enumerate(labels)}
-    return go.Figure(
+    fig = go.Figure(
         data=[
             go.Sankey(
                 node={"label": labels},
@@ -47,3 +49,5 @@ def application_capability_sankey(model: dict[str, pd.DataFrame], limit: int = 2
             )
         ]
     )
+    fig.update_layout(title="Application -> capability mappings", height=900, margin=dict(l=10, r=10, t=60, b=10))
+    return fig
