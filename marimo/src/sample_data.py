@@ -65,7 +65,16 @@ def sample_workbook() -> dict[str, pd.DataFrame]:
 
 
 def sample_model() -> dict[str, pd.DataFrame]:
-    return build_model(sample_workbook(), DEFAULT_CONFIG)
+    model = build_model(sample_workbook(), DEFAULT_CONFIG)
+    model["fact_incidents"] = pd.DataFrame(
+        [
+            {"application_code": "APP-WIDE", "year": 2025, "incident_type": 1, "incident_count": 4, "source_sheet": "Incidents", "source_row": 2},
+            {"application_code": "APP-WIDE", "year": 2025, "incident_type": 2, "incident_count": 2, "source_sheet": "Incidents", "source_row": 3},
+            {"application_code": "APP-NARROW", "year": 2025, "incident_type": 1, "incident_count": 1, "source_sheet": "Incidents", "source_row": 4},
+        ],
+        columns=["application_code", "year", "incident_type", "incident_count", "source_sheet", "source_row"],
+    )
+    return model
 
 
 def empty_model() -> dict[str, pd.DataFrame]:

@@ -7,7 +7,7 @@ import unicodedata
 
 import pandas as pd
 
-from .config import ImportConfig, MappingSheetConfig
+from .config import FactColumnConfig, FactSheetConfig, ImportConfig, MappingSheetConfig
 
 
 @dataclass(frozen=True)
@@ -48,8 +48,23 @@ def match_header(headers: Iterable[str], aliases: Iterable[str]) -> str | None:
     return None
 
 
-def find_sheet_name(sheet_names: Iterable[str], aliases: Iterable[str]) -> str | None:
-    return match_header(sheet_names, aliases)
+def find_sheet_name(sheet_names: Iterable[str], aliases: Iterable[str], source_path: str | None = None) -> str | None:
+    normalized_source_path = normalize_source_path(source_path) if source_path else None
+    candidates = []
+    for sheet_name in sheet_names:
+        sheet_source_path, display_name = split_sheet_key(sheet_name)
+        if normalized_source_path and normalize_source_path(sheet_source_path) != normalized_source_path:
+            continue
+        candidates.append((sheet_name, display_name))
+    if not candidates:
+        return None
+    display_name = match_header([display for _, display in candidates], aliases)
+    if not display_name:
+        return None
+    for sheet_name, candidate_display in candidates:
+        if candidate_display == display_name:
+            return sheet_name
+    return None
 
 
 def extract_leading_code(value: object) -> str:
@@ -100,6 +115,18 @@ def split_path_labels(value: str) -> tuple[str, ...]:
     return tuple(clean_text(part) for part in re.split(r"\s*/\s*", value) if clean_text(part))
 
 
+def split_sheet_key(sheet_key: str) -> tuple[str, str]:
+    text = clean_text(sheet_key)
+    if "::" in text:
+        source_path, sheet_name = text.split("::", 1)
+        return source_path, sheet_name
+    return "", text
+
+
+def normalize_source_path(value: str) -> str:
+    return clean_text(value).replace("\\", "/")
+
+
 def parse_capability_value(value: object) -> ParsedCapability | None:
     raw_value = clean_text(value)
     if not raw_value:
@@ -125,7 +152,7 @@ def build_capability_tables(workbook: dict[str, pd.DataFrame], config: ImportCon
     path_index: dict[str, str] = {}
 
     for sheet_config in config.hierarchy_sheets:
-        sheet_name = find_sheet_name(workbook.keys(), sheet_config.sheet_names)
+        sheet_name = find_sheet_name(workbook.keys(), sheet_config.sheet_names, sheet_config.source_path)
         if not sheet_name:
             warnings.append(_warning("error", "", 0, "Hierarchy sheet not found", ", ".join(sheet_config.sheet_names)))
             continue
@@ -171,7 +198,7 @@ def build_mapping_tables(
     path_index = dict(capabilities.attrs.get("path_index", {}))
 
     for sheet_config in config.mapping_sheets:
-        sheet_name = find_sheet_name(workbook.keys(), sheet_config.sheet_names)
+        sheet_name = find_sheet_name(workbook.keys(), sheet_config.sheet_names, sheet_config.source_path)
         if not sheet_name:
             warnings.append(_warning("warning", "", 0, "Mapping sheet not found", ", ".join(sheet_config.sheet_names)))
             continue
@@ -211,9 +238,10 @@ def build_capability_closure(capabilities: pd.DataFrame) -> pd.DataFrame:
 def build_model(workbook: dict[str, pd.DataFrame], config: ImportConfig) -> dict[str, pd.DataFrame]:
     capabilities, hierarchy_warnings = build_capability_tables(workbook, config)
     applications, entities, bridges, mapping_warnings = build_mapping_tables(workbook, config, capabilities)
+    fact_tables, fact_warnings = build_fact_tables(workbook, config)
     closure = build_capability_closure(capabilities)
-    warnings = pd.concat([hierarchy_warnings, mapping_warnings], ignore_index=True)
-    return {
+    warnings = pd.concat([hierarchy_warnings, mapping_warnings, fact_warnings], ignore_index=True)
+    model = {
         "dim_business_capability": capabilities,
         "dim_application": applications,
         "dim_entity": entities,
@@ -221,6 +249,96 @@ def build_model(workbook: dict[str, pd.DataFrame], config: ImportConfig) -> dict
         "capability_closure": closure,
         "import_warnings": warnings,
     }
+    model.update(fact_tables)
+    return model
+
+
+def build_fact_tables(
+    workbook: dict[str, pd.DataFrame],
+    config: ImportConfig,
+) -> tuple[dict[str, pd.DataFrame], pd.DataFrame]:
+    fact_tables: dict[str, pd.DataFrame] = {}
+    warnings: list[dict[str, object]] = []
+
+    for fact_config in config.fact_sheets:
+        sheet_name = find_sheet_name(workbook.keys(), fact_config.sheet_names, fact_config.source_path)
+        if not sheet_name:
+            warnings.append(_warning("warning", "", 0, "Fact sheet not found", ", ".join(fact_config.sheet_names)))
+            continue
+        frame, fact_warnings = _extract_fact_sheet(workbook[sheet_name], sheet_name, fact_config)
+        fact_tables[fact_config.target_table] = frame
+        warnings.extend(fact_warnings.to_dict(orient="records"))
+
+    return fact_tables, pd.DataFrame(warnings, columns=_warning_columns())
+
+
+def _extract_fact_sheet(
+    frame: pd.DataFrame,
+    sheet_name: str,
+    fact_config: FactSheetConfig,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    column_headers = [match_header(frame.columns, column.aliases) for column in fact_config.columns]
+    rows: list[dict[str, object]] = []
+    warnings: list[dict[str, object]] = []
+
+    for index, row in frame.iterrows():
+        source_row = int(index) + 2
+        parsed_row: dict[str, object] = {
+            "source_sheet": sheet_name,
+            "source_row": source_row,
+        }
+        skip_row = False
+
+        for column_spec, header in zip(fact_config.columns, column_headers):
+            raw_value = row[header] if header else ""
+            value, warning = _parse_fact_column_value(raw_value, column_spec, sheet_name, source_row)
+            if warning:
+                warnings.append(warning)
+            if value is None:
+                if column_spec.required:
+                    skip_row = True
+                    break
+                parsed_row[column_spec.role] = None
+            else:
+                parsed_row[column_spec.role] = value
+
+        if not skip_row:
+            rows.append(parsed_row)
+
+    ordered_columns = [column.role for column in fact_config.columns] + ["source_sheet", "source_row"]
+    return pd.DataFrame(rows, columns=ordered_columns), pd.DataFrame(warnings, columns=_warning_columns())
+
+
+def _parse_fact_column_value(
+    raw_value: object,
+    column_spec: FactColumnConfig,
+    source_sheet: str,
+    source_row: int,
+) -> tuple[object | None, dict[str, object] | None]:
+    text = clean_text(raw_value)
+    if not text:
+        if column_spec.required:
+            return None, _warning("warning", source_sheet, source_row, f"Missing required value for {column_spec.role}", "")
+        return None, None
+
+    if column_spec.dtype == "string":
+        value: object = text
+    elif column_spec.dtype == "integer":
+        if not re.fullmatch(r"[-+]?\d+", text):
+            return None, _warning("warning", source_sheet, source_row, f"Invalid integer for {column_spec.role}", text)
+        value = int(text)
+    else:
+        return None, _warning("warning", source_sheet, source_row, f"Unsupported dtype for {column_spec.role}", text)
+
+    if column_spec.allowed_values and value not in column_spec.allowed_values and str(value) not in {
+        str(item) for item in column_spec.allowed_values
+    }:
+        return None, _warning("warning", source_sheet, source_row, f"Unexpected value for {column_spec.role}", text)
+
+    if isinstance(value, int) and column_spec.min_value is not None and value < column_spec.min_value:
+        return None, _warning("warning", source_sheet, source_row, f"Value below minimum for {column_spec.role}", text)
+
+    return value, None
 
 
 def _extract_mapping_sheet(

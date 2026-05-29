@@ -119,6 +119,7 @@ def _(data_source, mo):
 
 @app.cell
 def _(data_source, mo, model):
+    fact_tables = {name: frame for name, frame in model.items() if name.startswith("fact_")}
     counts = {
         "Source": data_source,
         "Applications": len(model["dim_application"]),
@@ -127,6 +128,8 @@ def _(data_source, mo, model):
         "Mappings": len(model["bridge_application_capability"]),
         "Warnings": len(model["import_warnings"]),
     }
+    if fact_tables:
+        counts["Facts"] = ", ".join(f"{name}={len(frame)}" for name, frame in sorted(fact_tables.items()))
     mo.md(
         "\n".join(
             [

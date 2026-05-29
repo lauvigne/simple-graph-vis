@@ -39,8 +39,9 @@ def connect(base_dir: str | Path = "data"):
 
 
 def write_model(con, model: dict[str, pd.DataFrame]) -> None:
-    for table in TABLES:
-        frame = model.get(table, pd.DataFrame())
+    for table, frame in model.items():
+        if not isinstance(frame, pd.DataFrame):
+            continue
         con.register(f"{table}_df", frame)
         con.execute(f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM {table}_df")
         con.unregister(f"{table}_df")
@@ -58,13 +59,22 @@ def reset_storage(base_dir: str | Path = "data") -> None:
 
 
 def read_table(con, table: str) -> pd.DataFrame:
-    if table not in TABLES:
+    if table.startswith("ducklake_"):
         raise ValueError(f"Unknown table: {table}")
     return con.execute(f"SELECT * FROM {table}").fetchdf()
 
 
 def load_model(con) -> dict[str, pd.DataFrame]:
-    return {table: read_table(con, table) for table in TABLES}
+    tables = con.execute(
+        """
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'main'
+          AND table_name NOT LIKE 'ducklake\\_%' ESCAPE '\\'
+        ORDER BY table_name
+        """
+    ).fetchall()
+    return {table_name: read_table(con, table_name) for (table_name,) in tables}
 
 
 def storage_exists(base_dir: str | Path = "data") -> bool:

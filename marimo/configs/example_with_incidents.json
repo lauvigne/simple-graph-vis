@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "hierarchySheets": [
+    {
+      "sheetNames": ["BIAN Capabilities"],
+      "headerRow": 3,
+      "pathColumns": [
+        ["Business Capability (L1)"],
+        ["Business Capability (L2)"],
+        ["Business Capability (L3)"]
+      ],
+      "pathCodeColumns": [
+        [],
+        ["Business Capability (L2) long name"],
+        ["Business Capability (L3) long name"]
+      ],
+      "sourcePath": null
+    }
+  ],
+  "mappingSheets": [
+    {
+      "sheetNames": ["E1-BCM"],
+      "entityValue": "Entity 1",
+      "applicationCodeColumn": ["Application Code"],
+      "applicationColumn": ["Application Display Name"],
+      "applicationNameColumn": ["Application Name"],
+      "targetPathColumns": [["BIAN L2"], ["BIAN L3"]],
+      "sourcePath": null
+    },
+    {
+      "sheetNames": ["E2-BCM"],
+      "entityValue": "Entity 2",
+      "applicationCodeColumn": ["Application Code"],
+      "applicationColumn": ["Application Display Name"],
+      "applicationNameColumn": ["Application Name"],
+      "targetPathColumns": [["BIAN L2"], ["BIAN L3"]],
+      "sourcePath": null
+    },
+    {
+      "sheetNames": ["E3-BCM"],
+      "entityValue": "Entity 3",
+      "applicationCodeColumn": ["Application Code"],
+      "applicationColumn": ["Application Display Name"],
+      "applicationNameColumn": ["Application Name"],
+      "targetPathColumns": [["BIAN L2"], ["BIAN L3"]],
+      "sourcePath": null
+    },
+    {
+      "sheetNames": ["E4-BCM"],
+      "entityValue": "Entity 4",
+      "applicationCodeColumn": ["Application Code"],
+      "applicationColumn": ["Application Display Name"],
+      "applicationNameColumn": ["Application Name"],
+      "targetPathColumns": [["BIAN L2"], ["BIAN L3"]],
+      "sourcePath": null
+    }
+  ],
+  "factSheets": [
+    {
+      "sheetNames": ["Incidents"],
+      "targetTable": "fact_incidents",
+      "headerRow": 1,
+      "columns": [
+        {
+          "aliases": ["Application Code", "Code application"],
+          "role": "application_code",
+          "dtype": "string",
+          "required": true,
+          "allowedValues": [],
+          "minValue": null
+        },
+        {
+          "aliases": ["Year", "Année", "Annee"],
+          "role": "year",
+          "dtype": "integer",
+          "required": true,
+          "allowedValues": [],
+          "minValue": null
+        },
+        {
+          "aliases": ["Type", "Incident Type", "Incident type"],
+          "role": "incident_type",
+          "dtype": "integer",
+          "required": true,
+          "allowedValues": [1, 2],
+          "minValue": null
+        },
+        {
+          "aliases": ["Incident Count", "Nombre d'incidents", "Nombre incidents"],
+          "role": "incident_count",
+          "dtype": "integer",
+          "required": true,
+          "allowedValues": [],
+          "minValue": 0
+        }
+      ],
+      "sourcePath": null
+    }
+  ]
+}

@@ -20,12 +20,16 @@ def _():
 
     import marimo as mo
 
+    from src.config import DEFAULT_CONFIG
+    from src.config_io import load_import_config
     from src.ducklake_repository import connect, reset_storage, write_model
     from src.load_excel import load_excel_model
     from src.sample_data import sample_model
     return (
         Path,
+        DEFAULT_CONFIG,
         connect,
+        load_import_config,
         load_excel_model,
         mo,
         reset_storage,
@@ -74,11 +78,19 @@ def _(mo):
         lazy=True,
         label="Source du fichier",
     )
+    config_browser = mo.ui.file_browser(
+        initial_path=".",
+        filetypes=[".json"],
+        selection_mode="file",
+        multiple=False,
+        restrict_navigation=False,
+        label="Config JSON (optionnelle)",
+    )
     cache_dir = mo.ui.text(value="data", label="Dossier cache")
     purge_cache = mo.ui.checkbox(value=True, label="Purger le cache avant écriture")
     auto_refresh = mo.ui.checkbox(value=True, label="Écrire automatiquement le cache au chargement")
-    mo.vstack([source_tabs, cache_dir, purge_cache, auto_refresh])
-    return auto_refresh, cache_dir, excel_browser, excel_upload, purge_cache, source_tabs
+    mo.vstack([source_tabs, config_browser, cache_dir, purge_cache, auto_refresh])
+    return auto_refresh, cache_dir, config_browser, excel_browser, excel_upload, purge_cache, source_tabs
 
 
 @app.cell
@@ -88,7 +100,7 @@ def _(mo):
 
 
 @app.cell
-def _(NOTEBOOK_DIR, Path, excel_browser, excel_upload, load_excel_model, sample_model, source_tabs):
+def _(DEFAULT_CONFIG, NOTEBOOK_DIR, Path, config_browser, excel_browser, excel_upload, load_excel_model, load_import_config, sample_model, source_tabs):
     selected_path = None
     if source_tabs.value == "Upload" and excel_upload.value:
         upload_dir = NOTEBOOK_DIR / ".uploads"
@@ -99,17 +111,24 @@ def _(NOTEBOOK_DIR, Path, excel_browser, excel_upload, load_excel_model, sample_
     elif source_tabs.value == "Fichier local" and excel_browser.value:
         selected_path = Path(excel_browser.path()).expanduser()
 
+    config = DEFAULT_CONFIG
+    config_source = "default"
+    if config_browser.value:
+        config_path = Path(config_browser.path()).expanduser()
+        config = load_import_config(config_path)
+        config_source = str(config_path)
+
     if selected_path and selected_path.exists():
-        model = load_excel_model(selected_path)
+        model = load_excel_model(selected_path, config)
         data_source = str(selected_path)
     else:
         model = sample_model()
         data_source = f"sample (missing file: {selected_path or 'no file selected'})"
-    return data_source, model
+    return config_source, data_source, model
 
 
 @app.cell
-def _(NOTEBOOK_DIR, Path, auto_refresh, cache_dir, connect, data_source, mo, model, purge_cache, reset_storage, set_status, write_model):
+def _(NOTEBOOK_DIR, Path, auto_refresh, cache_dir, connect, config_source, data_source, mo, model, purge_cache, reset_storage, set_status, write_model):
     def _write_cache() -> None:
         cache_path = Path(cache_dir.value).expanduser()
         if not cache_path.is_absolute():
@@ -121,7 +140,7 @@ def _(NOTEBOOK_DIR, Path, auto_refresh, cache_dir, connect, data_source, mo, mod
             write_model(con, model)
         finally:
             con.close()
-        set_status(f"Cache écrit dans {cache_path.resolve()} depuis {data_source}")
+        set_status(f"Cache écrit dans {cache_path.resolve()} depuis {data_source} (config: {config_source})")
 
     if auto_refresh.value:
         _write_cache()

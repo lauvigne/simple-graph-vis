@@ -4,6 +4,8 @@ Prototype Python/Marimo pour explorer les mappings applicatifs. L'ingestion Exce
 
 - `ingest.py` charge l'Excel et réécrit `marimo/data/`
 - `app.py` lit uniquement les tables DuckDB/DuckLake présentes dans `marimo/data/`
+- `ingest.py` peut aussi charger un JSON de configuration pour paramétrer les sources et les colonnes
+- `config_builder.py` sert à éditer et sauvegarder le JSON de paramétrage dans Marimo
 
 ## Installation
 
@@ -48,6 +50,7 @@ Si l’extension DuckLake n’est pas disponible sur le poste, `src/ducklake_rep
 Les cellules Marimo restent fines. La logique métier est dans `src/`:
 
 - lecture Excel et configuration: `src/load_excel.py`, `src/config.py`
+- sérialisation JSON de config: `src/config_io.py`
 - parsing et normalisation: `src/transformations.py`
 - calculs de couverture: `src/coverage.py`
 - SQL/storage: `src/ducklake_repository.py`
