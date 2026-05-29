@@ -23,7 +23,7 @@ def _():
     from src.config import DEFAULT_CONFIG
     from src.config_io import load_import_config
     from src.ducklake_repository import connect, reset_storage, write_model
-    from src.load_excel import load_excel_model
+    from src.load_excel import load_excel_model, load_workbook
     from src.sample_data import sample_model
     return (
         Path,
@@ -31,6 +31,7 @@ def _():
         connect,
         load_import_config,
         load_excel_model,
+        load_workbook,
         mo,
         reset_storage,
         sample_model,
@@ -100,7 +101,7 @@ def _(mo):
 
 
 @app.cell
-def _(DEFAULT_CONFIG, NOTEBOOK_DIR, Path, config_browser, excel_browser, excel_upload, load_excel_model, load_import_config, sample_model, source_tabs):
+def _(DEFAULT_CONFIG, NOTEBOOK_DIR, Path, config_browser, excel_browser, excel_upload, load_excel_model, load_import_config, load_workbook, sample_model, source_tabs):
     selected_path = None
     if source_tabs.value == "Upload" and excel_upload.value:
         upload_dir = NOTEBOOK_DIR / ".uploads"
@@ -119,12 +120,14 @@ def _(DEFAULT_CONFIG, NOTEBOOK_DIR, Path, config_browser, excel_browser, excel_u
         config_source = str(config_path)
 
     if selected_path and selected_path.exists():
+        raw_workbook = load_workbook(selected_path, config)
         model = load_excel_model(selected_path, config)
         data_source = str(selected_path)
     else:
+        raw_workbook = {}
         model = sample_model()
         data_source = f"sample (missing file: {selected_path or 'no file selected'})"
-    return config_source, data_source, model
+    return config_source, data_source, model, raw_workbook
 
 
 @app.cell
@@ -159,7 +162,7 @@ def _(NOTEBOOK_DIR, Path, auto_refresh, cache_dir, connect, config_source, data_
 
 
 @app.cell
-def _(data_source, mo, model, status):
+def _(data_source, mo, model, raw_workbook, status):
     counts = {
         "Source": data_source,
         "Applications": len(model["dim_application"]),
@@ -179,6 +182,31 @@ def _(data_source, mo, model, status):
         )
     )
     return
+
+
+@app.cell
+def _(mo, raw_workbook):
+    if not raw_workbook:
+        preview = mo.md("## Données brutes\nAucune feuille brute chargée.")
+    else:
+        tabs = {}
+        for sheet_key, frame in raw_workbook.items():
+            tabs[sheet_key] = mo.vstack(
+                [
+                    mo.md(
+                        "\n".join(
+                            [
+                                f"**Feuille**: `{sheet_key}`",
+                                f"**Dimensions**: {frame.shape[0]} lignes × {frame.shape[1]} colonnes",
+                            ]
+                        )
+                    ),
+                    frame.head(50),
+                ]
+            )
+
+        preview = mo.vstack([mo.md("## Données brutes lues depuis l'Excel"), mo.ui.tabs(tabs, lazy=True)])
+    preview
 
 
 if __name__ == "__main__":
