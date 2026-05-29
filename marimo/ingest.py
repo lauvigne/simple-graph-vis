@@ -89,18 +89,8 @@ def _(mo):
         label="Config JSON (optionnelle)",
     )
     cache_dir = mo.ui.text(value="data", label="Dossier cache")
-    purge_cache = mo.ui.checkbox(value=True, label="Purger le cache avant écriture")
-    auto_refresh = mo.ui.checkbox(value=True, label="Écrire automatiquement le cache au chargement")
-    mo.vstack([source_tabs, config_browser, cache_dir, purge_cache, auto_refresh])
-    return (
-        auto_refresh,
-        cache_dir,
-        config_browser,
-        excel_browser,
-        excel_upload,
-        purge_cache,
-        source_tabs,
-    )
+    mo.vstack([source_tabs, config_browser, cache_dir])
+    return cache_dir, config_browser, excel_browser, excel_upload, source_tabs
 
 
 @app.cell
@@ -148,7 +138,30 @@ def _(
         raw_workbook = {}
         model = sample_model()
         data_source = f"sample (missing file: {selected_path or 'no file selected'})"
-    return config_source, data_source, model, raw_workbook
+
+    source_paths = set()
+    for sheet in (*config.hierarchy_sheets, *config.mapping_sheets, *config.fact_sheets):
+        source_value = sheet.source_path or (str(selected_path) if selected_path else "")
+        if source_value:
+            source_paths.add(str(Path(source_value).expanduser().resolve()))
+    multi_source_input = len(source_paths) > 1
+    return config_source, data_source, model, multi_source_input, raw_workbook
+
+
+@app.cell
+def _(mo, multi_source_input):
+    purge_cache = mo.ui.checkbox(
+        value=False if multi_source_input else True,
+        label="Purger le cache avant écriture",
+        disabled=multi_source_input,
+    )
+    auto_refresh = mo.ui.checkbox(
+        value=False if multi_source_input else True,
+        label="Écrire automatiquement le cache au chargement",
+        disabled=multi_source_input,
+    )
+    mo.vstack([purge_cache, auto_refresh])
+    return auto_refresh, purge_cache
 
 
 @app.cell
@@ -162,6 +175,7 @@ def _(
     data_source,
     mo,
     model,
+    multi_source_input,
     purge_cache,
     reset_storage,
     set_status,
@@ -171,7 +185,7 @@ def _(
         cache_path = Path(cache_dir.value).expanduser()
         if not cache_path.is_absolute():
             cache_path = (NOTEBOOK_DIR / cache_path).resolve()
-        if purge_cache.value:
+        if purge_cache.value and not multi_source_input:
             reset_storage(cache_path)
         con = connect(cache_path)
         try:
@@ -180,7 +194,7 @@ def _(
             con.close()
         set_status(f"Cache écrit dans {cache_path.resolve()} depuis {data_source} (config: {config_source})")
 
-    if auto_refresh.value:
+    if auto_refresh.value and not multi_source_input:
         _write_cache()
 
     def _refresh_cache(_event: object) -> None:
@@ -216,6 +230,49 @@ def _(data_source, mo, model, status):
             ]
         )
     )
+    return
+
+
+@app.cell
+def _(mo, model):
+    warnings_frame = model["import_warnings"]
+    if len(warnings_frame) == 0:
+        warnings_preview = mo.md("")
+    else:
+        warnings_preview = mo.vstack(
+            [
+                mo.md(
+                    "\n".join(
+                        [
+                            "## Warnings d'import",
+                            "",
+                            f"{len(warnings_frame)} ligne(s) en erreur ou en alerte pendant l'import.",
+                        ]
+                    )
+                ),
+                warnings_frame,
+            ]
+        )
+    warnings_preview
+    return
+
+
+@app.cell
+def _(mo, multi_source_input):
+    notice = (
+        mo.md(
+            "\n".join(
+                [
+                    "### Mode multi-fichiers détecté",
+                    "",
+                    "Les options `Purger le cache` et `Écrire automatiquement le cache` sont désactivées pour éviter d'effacer une ingestion partielle.",
+                ]
+            )
+        )
+        if multi_source_input
+        else mo.md("")
+    )
+    notice
     return
 
 
