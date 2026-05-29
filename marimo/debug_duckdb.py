@@ -60,6 +60,12 @@ def _(mo):
 
 
 @app.cell
+def _(mo):
+    refresh_count, set_refresh_count = mo.state(0)
+    return refresh_count, set_refresh_count
+
+
+@app.cell
 def _(
     NOTEBOOK_DIR,
     Path,
@@ -67,6 +73,7 @@ def _(
     connect,
     load_model,
     mo,
+    refresh_count,
     storage_exists,
 ):
     cache_path = NOTEBOOK_DIR / "data"
@@ -102,6 +109,21 @@ def _(
         )
     )
     return cache_path, model, tables
+
+
+@app.cell
+def _(mo, refresh_count, set_refresh_count):
+    def _refresh_cache(_event: object) -> None:
+        set_refresh_count(refresh_count + 1)
+
+    refresh_button = mo.ui.button(
+        label="Rafraîchir les données",
+        kind="success",
+        tooltip="Relit le fichier local.duckdb et recalcule les aperçus",
+        on_click=_refresh_cache,
+    )
+    refresh_button
+    return
 
 
 @app.cell
