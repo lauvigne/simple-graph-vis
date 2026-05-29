@@ -10,7 +10,7 @@
 
 import marimo
 
-__generated_with = "0.17.6"
+__generated_with = "0.23.8"
 app = marimo.App(width="wide")
 
 
@@ -25,12 +25,13 @@ def _():
     from src.ducklake_repository import connect, reset_storage, write_model
     from src.load_excel import load_excel_model, load_workbook
     from src.sample_data import sample_model
+
     return (
-        Path,
         DEFAULT_CONFIG,
+        Path,
         connect,
-        load_import_config,
         load_excel_model,
+        load_import_config,
         load_workbook,
         mo,
         reset_storage,
@@ -91,7 +92,15 @@ def _(mo):
     purge_cache = mo.ui.checkbox(value=True, label="Purger le cache avant écriture")
     auto_refresh = mo.ui.checkbox(value=True, label="Écrire automatiquement le cache au chargement")
     mo.vstack([source_tabs, config_browser, cache_dir, purge_cache, auto_refresh])
-    return auto_refresh, cache_dir, config_browser, excel_browser, excel_upload, purge_cache, source_tabs
+    return (
+        auto_refresh,
+        cache_dir,
+        config_browser,
+        excel_browser,
+        excel_upload,
+        purge_cache,
+        source_tabs,
+    )
 
 
 @app.cell
@@ -101,7 +110,19 @@ def _(mo):
 
 
 @app.cell
-def _(DEFAULT_CONFIG, NOTEBOOK_DIR, Path, config_browser, excel_browser, excel_upload, load_excel_model, load_import_config, load_workbook, sample_model, source_tabs):
+def _(
+    DEFAULT_CONFIG,
+    NOTEBOOK_DIR,
+    Path,
+    config_browser,
+    excel_browser,
+    excel_upload,
+    load_excel_model,
+    load_import_config,
+    load_workbook,
+    sample_model,
+    source_tabs,
+):
     selected_path = None
     if source_tabs.value == "Upload" and excel_upload.value:
         upload_dir = NOTEBOOK_DIR / ".uploads"
@@ -131,7 +152,21 @@ def _(DEFAULT_CONFIG, NOTEBOOK_DIR, Path, config_browser, excel_browser, excel_u
 
 
 @app.cell
-def _(NOTEBOOK_DIR, Path, auto_refresh, cache_dir, connect, config_source, data_source, mo, model, purge_cache, reset_storage, set_status, write_model):
+def _(
+    NOTEBOOK_DIR,
+    Path,
+    auto_refresh,
+    cache_dir,
+    config_source,
+    connect,
+    data_source,
+    mo,
+    model,
+    purge_cache,
+    reset_storage,
+    set_status,
+    write_model,
+):
     def _write_cache() -> None:
         cache_path = Path(cache_dir.value).expanduser()
         if not cache_path.is_absolute():
@@ -162,7 +197,7 @@ def _(NOTEBOOK_DIR, Path, auto_refresh, cache_dir, connect, config_source, data_
 
 
 @app.cell
-def _(data_source, mo, model, raw_workbook, status):
+def _(data_source, mo, model, status):
     counts = {
         "Source": data_source,
         "Applications": len(model["dim_application"]),
@@ -207,6 +242,7 @@ def _(mo, raw_workbook):
 
         preview = mo.vstack([mo.md("## Données brutes lues depuis l'Excel"), mo.ui.tabs(tabs, lazy=True)])
     preview
+    return
 
 
 if __name__ == "__main__":

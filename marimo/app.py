@@ -10,7 +10,7 @@
 
 import marimo
 
-__generated_with = "0.20.4"
+__generated_with = "0.23.8"
 app = marimo.App(width="wide")
 
 
@@ -31,10 +31,9 @@ def _():
         Path,
         build_capability_sunburst,
         build_mapping_sankey,
-        candidate_details,
         capabilities_table,
-        duplicate_capabilities,
         connect,
+        duplicate_capabilities,
         empty_model,
         load_model,
         mo,
@@ -81,7 +80,17 @@ def _(mo):
 
 
 @app.cell
-def _(NOTEBOOK_DIR, Path, cache_dir, connect, empty_model, is_script_mode, load_model, sample_model, storage_exists):
+def _(
+    NOTEBOOK_DIR,
+    Path,
+    cache_dir,
+    connect,
+    empty_model,
+    is_script_mode,
+    load_model,
+    sample_model,
+    storage_exists,
+):
     cache_path = Path(cache_dir.value).expanduser()
     if not cache_path.is_absolute():
         cache_path = (NOTEBOOK_DIR / cache_path).resolve()
@@ -145,21 +154,21 @@ def _(data_source, mo, model):
 def _(capabilities_table, model):
     capability_rows = capabilities_table(model)
     capability_rows
-    return (capability_rows,)
+    return
 
 
 @app.cell
 def _(duplicate_capabilities, model):
     duplicate_rows = duplicate_capabilities(model)
     duplicate_rows
-    return (duplicate_rows,)
+    return
 
 
 @app.cell
 def _(model, query_candidates, scope_mode, threshold):
     candidates = query_candidates(model, threshold=threshold.value, entity=None, scope_mode=scope_mode.value)
     candidates
-    return (candidates,)
+    return
 
 
 @app.cell
@@ -179,6 +188,7 @@ def _(build_capability_sunburst, build_mapping_sankey, mo, model, show_plots):
     else:
         result = mo.md("Les graphiques avancés sont masqués. Active `Afficher les graphiques avancés` pour les ouvrir dans des onglets séparés.")
     result
+    return
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@
 
 import marimo
 
-__generated_with = "0.17.6"
+__generated_with = "0.23.8"
 app = marimo.App(width="wide")
 
 
@@ -21,6 +21,7 @@ def _():
     import pandas as pd
 
     from src.ducklake_repository import connect, load_model, read_table, storage_exists
+
     return Path, connect, load_model, mo, pd, read_table, storage_exists
 
 
@@ -59,7 +60,15 @@ def _(mo):
 
 
 @app.cell
-def _(NOTEBOOK_DIR, Path, cache_browser, connect, load_model, mo, storage_exists):
+def _(
+    NOTEBOOK_DIR,
+    Path,
+    cache_browser,
+    connect,
+    load_model,
+    mo,
+    storage_exists,
+):
     cache_path = NOTEBOOK_DIR / "data"
     if cache_browser.value:
         cache_path = Path(cache_browser.path()).expanduser()
@@ -88,7 +97,7 @@ def _(NOTEBOOK_DIR, Path, cache_browser, connect, load_model, mo, storage_exists
             ]
         )
     )
-    return cache_path, model, status, tables
+    return cache_path, model, tables
 
 
 @app.cell
@@ -102,7 +111,7 @@ def _(mo, tables):
 
 
 @app.cell
-def _(mo, pd, model, table_selector):
+def _(mo, model, pd, table_selector):
     if table_selector.value == "(aucune table)":
         preview = mo.md("### Tables\nAucune table disponible dans ce cache.")
     else:
@@ -133,7 +142,7 @@ def _(mo, pd, model, table_selector):
 
 
 @app.cell
-def _(mo, cache_path, connect, preview_limit, read_table, table_selector):
+def _(cache_path, connect, mo, preview_limit, read_table, table_selector):
     if table_selector.value == "(aucune table)":
         details = mo.md("Aucune requête à exécuter.")
     else:

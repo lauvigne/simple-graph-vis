@@ -9,7 +9,7 @@
 
 import marimo
 
-__generated_with = "0.20.4"
+__generated_with = "0.23.8"
 app = marimo.App(width="wide")
 
 
@@ -22,7 +22,16 @@ def _():
 
     from src.config import DEFAULT_CONFIG
     from src.config_io import import_config_from_dict, import_config_to_dict, save_import_config
-    return Path, DEFAULT_CONFIG, import_config_from_dict, import_config_to_dict, mo, save_import_config
+
+    return (
+        DEFAULT_CONFIG,
+        Path,
+        import_config_from_dict,
+        import_config_to_dict,
+        json,
+        mo,
+        save_import_config,
+    )
 
 
 @app.cell
@@ -47,7 +56,7 @@ def _(mo):
 
 
 @app.cell
-def _(DEFAULT_CONFIG, import_config_to_dict, mo):
+def _(DEFAULT_CONFIG, import_config_to_dict, json, mo):
     config_text = mo.ui.code_editor(
         value=json.dumps(import_config_to_dict(DEFAULT_CONFIG), indent=2, ensure_ascii=False),
         language="json",
@@ -63,11 +72,11 @@ def _(DEFAULT_CONFIG, import_config_to_dict, mo):
         label="Workbook à inspecter",
     )
     mo.vstack([workbook_browser, output_path, config_text])
-    return config_text, output_path, workbook_browser
+    return config_text, output_path
 
 
 @app.cell
-def _(config_text, import_config_from_dict, mo):
+def _(config_text, import_config_from_dict, json, mo):
     try:
         parsed = import_config_from_dict(json.loads(config_text.value))
         status = mo.md(
@@ -87,7 +96,16 @@ def _(config_text, import_config_from_dict, mo):
 
 
 @app.cell
-def _(NOTEBOOK_DIR, Path, config_text, import_config_from_dict, mo, output_path, save_import_config):
+def _(
+    NOTEBOOK_DIR,
+    Path,
+    config_text,
+    import_config_from_dict,
+    json,
+    mo,
+    output_path,
+    save_import_config,
+):
     def _save(_event: object) -> None:
         payload = json.loads(config_text.value)
         config = import_config_from_dict(payload, base_dir=NOTEBOOK_DIR)
