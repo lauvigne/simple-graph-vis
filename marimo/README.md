@@ -3,7 +3,7 @@
 Prototype Python/Marimo pour explorer les mappings applicatifs. L'ingestion Excel est séparée des rapports:
 
 - `ingest.py` charge l'Excel et réécrit `marimo/data/`
-- `app.py` lit uniquement les tables DuckDB/DuckLake présentes dans `marimo/data/`
+- `app.py` lit uniquement les tables DuckDB présentes dans `marimo/data/`
 - `ingest.py` peut aussi charger un JSON de configuration pour paramétrer les sources et les colonnes
 - `config_builder.py` sert à éditer et sauvegarder le JSON de paramétrage dans Marimo
 
@@ -38,12 +38,11 @@ python -m unittest discover -s tests
 
 ## Stockage
 
-La cible prévue est DuckDB + DuckLake:
+La cible est un simple fichier DuckDB local:
 
-- `marimo/data/metadata.ducklake`
-- `marimo/data/files/`
+- `marimo/data/local.duckdb`
 
-Si l’extension DuckLake n’est pas disponible sur le poste, `src/ducklake_repository.py` bascule sur un fichier DuckDB local.
+Le répertoire `marimo/data/` contient aussi les fichiers temporaires éventuellement créés par l’ingestion.
 
 ## Principe
 

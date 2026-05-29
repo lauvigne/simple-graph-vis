@@ -53,7 +53,7 @@ def _(mo):
             "# Marimo ingestion",
             "",
             "Ce notebook charge l'Excel, construit le modèle analytique puis réécrit `data/`.",
-            "Les notebooks de reporting lisent ensuite uniquement DuckDB/DuckLake.",
+            "Les notebooks de reporting lisent ensuite uniquement DuckDB.",
         ]
     )
     mo.md(intro)
@@ -189,7 +189,7 @@ def _(
     refresh_button = mo.ui.button(
         label="Refresh cache",
         kind="success",
-        tooltip="Charge l'Excel courant et réécrit DuckDB/DuckLake",
+        tooltip="Charge l'Excel courant et réécrit DuckDB",
         on_click=_refresh_cache,
     )
     refresh_button

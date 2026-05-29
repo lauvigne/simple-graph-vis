@@ -37,7 +37,7 @@ def _(mo):
         [
             "# Debug DuckDB",
             "",
-            "Ce notebook permet d'inspecter les tables présentes dans le cache DuckDB/DuckLake.",
+            "Ce notebook permet d'inspecter les tables présentes dans le cache DuckDB.",
             "Il sert à vérifier ce qui a réellement été écrit après l'ingestion.",
         ]
     )
@@ -75,10 +75,12 @@ def _(
         if not cache_path.is_absolute():
             cache_path = (NOTEBOOK_DIR / cache_path).resolve()
 
+    db_path = cache_path / "local.duckdb"
     status = "Cache introuvable"
     model = {}
     tables = ()
-    if storage_exists(cache_path):
+    cache_ready = storage_exists(cache_path)
+    if cache_ready:
         _conn = connect(cache_path)
         try:
             model = load_model(_conn)
@@ -92,6 +94,8 @@ def _(
             [
                 "## État du cache",
                 f"- **Chemin**: `{cache_path}`",
+                f"- **local.duckdb**: {'présent' if db_path.exists() else 'absent'}",
+                f"- **storage_exists**: `{cache_ready}`",
                 f"- **Statut**: {status}",
                 f"- **Tables**: {len(tables)}",
             ]

@@ -24,17 +24,7 @@ def connect(base_dir: str | Path = "data"):
 
     base_path = Path(base_dir).expanduser().resolve()
     base_path.mkdir(parents=True, exist_ok=True)
-    (base_path / "files").mkdir(parents=True, exist_ok=True)
     con = duckdb.connect(str(base_path / "local.duckdb"))
-    try:
-        con.execute("INSTALL ducklake")
-        con.execute("LOAD ducklake")
-        metadata = (base_path / "metadata.ducklake").as_posix()
-        data_path = (base_path / "files").as_posix()
-        con.execute(f"ATTACH 'ducklake:{metadata}' AS lake (DATA_PATH '{data_path}')")
-        con.execute("USE lake")
-    except Exception:
-        con.execute("USE main")
     return con
 
 
@@ -49,7 +39,7 @@ def write_model(con, model: dict[str, pd.DataFrame]) -> None:
 
 def reset_storage(base_dir: str | Path = "data") -> None:
     base_path = Path(base_dir).expanduser().resolve()
-    for filename in ("local.duckdb", "metadata.ducklake", "local.duckdb.wal"):
+    for filename in ("local.duckdb", "local.duckdb.wal", "metadata.ducklake"):
         path = base_path / filename
         if path.exists():
             path.unlink()
@@ -59,8 +49,6 @@ def reset_storage(base_dir: str | Path = "data") -> None:
 
 
 def read_table(con, table: str) -> pd.DataFrame:
-    if table.startswith("ducklake_"):
-        raise ValueError(f"Unknown table: {table}")
     return con.execute(f"SELECT * FROM {table}").fetchdf()
 
 
@@ -70,7 +58,6 @@ def load_model(con) -> dict[str, pd.DataFrame]:
         SELECT table_name
         FROM information_schema.tables
         WHERE table_schema = 'main'
-          AND table_name NOT LIKE 'ducklake\\_%' ESCAPE '\\'
         ORDER BY table_name
         """
     ).fetchall()
@@ -80,8 +67,7 @@ def load_model(con) -> dict[str, pd.DataFrame]:
 def storage_exists(base_dir: str | Path = "data") -> bool:
     base_path = Path(base_dir).expanduser().resolve()
     db_path = base_path / "local.duckdb"
-    metadata_path = base_path / "metadata.ducklake"
-    if not db_path.exists() or not metadata_path.exists():
+    if not db_path.exists():
         return False
     try:
         con = connect(base_path)

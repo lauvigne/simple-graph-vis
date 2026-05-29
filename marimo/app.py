@@ -61,7 +61,7 @@ def _(mo):
         [
             "# Marimo coverage dataviz",
             "",
-            "Ce notebook lit uniquement les tables DuckDB/DuckLake présentes dans `data/`.",
+            "Ce notebook lit uniquement les tables DuckDB présentes dans `data/`.",
             "Le chargement Excel est déplacé dans `ingest.py`.",
         ]
     )
@@ -112,7 +112,7 @@ def _(
 
 @app.cell
 def _(data_source, mo):
-    if data_source.startswith("cache missing"):
+    cache_notice = (
         mo.md(
             "\n".join(
                 [
@@ -123,6 +123,10 @@ def _(data_source, mo):
                 ]
             )
         )
+        if data_source.startswith("cache missing")
+        else mo.md("")
+    )
+    cache_notice
     return
 
 
