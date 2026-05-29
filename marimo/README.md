@@ -4,6 +4,7 @@ Prototype Python/Marimo pour explorer les mappings applicatifs. L'ingestion Exce
 
 - `ingest.py` charge l'Excel et réécrit `marimo/data/`
 - `app.py` lit uniquement les tables DuckDB présentes dans `marimo/data/`
+- `treemap.py` affiche un treemap des capacités métiers par applications ou incidents
 - `ingest.py` peut aussi charger un JSON de configuration pour paramétrer les sources et les colonnes
 - `config_builder.py` sert à éditer et sauvegarder le JSON de paramétrage dans Marimo
 
