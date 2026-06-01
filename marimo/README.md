@@ -12,6 +12,7 @@ L'ingestion Excel est séparée des rapports:
 
 - `notebooks/admin/ingest.py` charge l'Excel et réécrit `data/local.duckdb`
 - `notebooks/reports/app.py` lit uniquement les tables DuckDB présentes dans `data/`
+- `notebooks/reports/coverage.py` liste les candidats de couverture applicative et détaille les applications couvrantes
 - `notebooks/reports/treemap.py` affiche un treemap des capacités métiers par applications ou incidents
 - `notebooks/admin/config_builder.py` sert à éditer et sauvegarder le JSON de paramétrage dans Marimo
 

@@ -18,5 +18,10 @@ cd /Users/lauvigne/Documents/New\ project/marimo
 
 ```bash
 cd /Users/lauvigne/Documents/New\ project/marimo
+./.venv/bin/marimo edit notebooks/reports/coverage.py
+```
+
+```bash
+cd /Users/lauvigne/Documents/New\ project/marimo
 ./.venv/bin/marimo edit notebooks/admin/ingest.py
 ```
