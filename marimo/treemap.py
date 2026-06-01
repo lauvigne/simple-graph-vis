@@ -21,10 +21,9 @@ def _():
     import marimo as mo
 
     from reports.report_treemap import build_treemap_data, build_treemap_figure
-    from src.ducklake_repository import connect, load_model, storage_exists
-    from src.sample_data import sample_model
+    from src.duckdb_repository import connect, empty_model, load_model, storage_exists
 
-    return Path, build_treemap_data, build_treemap_figure, connect, load_model, mo, sample_model, storage_exists
+    return Path, build_treemap_data, build_treemap_figure, connect, empty_model, load_model, mo, storage_exists
 
 
 @app.cell
@@ -61,7 +60,7 @@ def _(mo):
 
 
 @app.cell
-def _(NOTEBOOK_DIR, Path, cache_dir, connect, load_model, metric_selector, sample_model, storage_exists):
+def _(NOTEBOOK_DIR, Path, cache_dir, connect, empty_model, load_model, metric_selector, storage_exists):
     cache_path = Path(cache_dir.value).expanduser()
     if not cache_path.is_absolute():
         cache_path = (NOTEBOOK_DIR / cache_path).resolve()
@@ -74,7 +73,7 @@ def _(NOTEBOOK_DIR, Path, cache_dir, connect, load_model, metric_selector, sampl
             conn.close()
         data_source = str(cache_path)
     else:
-        model = sample_model()
+        model = empty_model()
         data_source = "sample"
 
     return cache_path, data_source, model

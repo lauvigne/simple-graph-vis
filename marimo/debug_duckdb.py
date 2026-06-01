@@ -20,7 +20,7 @@ def _():
     import marimo as mo
     import pandas as pd
 
-    from src.ducklake_repository import connect, load_model, read_table, storage_exists
+    from src.duckdb_repository import connect, load_model, read_table, storage_exists
 
     return Path, connect, load_model, mo, pd, read_table, storage_exists
 

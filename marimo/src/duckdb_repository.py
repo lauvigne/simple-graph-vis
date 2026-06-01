@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
 import pandas as pd
@@ -24,8 +23,7 @@ def connect(base_dir: str | Path = "data"):
 
     base_path = Path(base_dir).expanduser().resolve()
     base_path.mkdir(parents=True, exist_ok=True)
-    con = duckdb.connect(str(base_path / "local.duckdb"))
-    return con
+    return duckdb.connect(str(base_path / "local.duckdb"))
 
 
 def write_model(con, model: dict[str, pd.DataFrame]) -> None:
@@ -39,13 +37,10 @@ def write_model(con, model: dict[str, pd.DataFrame]) -> None:
 
 def reset_storage(base_dir: str | Path = "data") -> None:
     base_path = Path(base_dir).expanduser().resolve()
-    for filename in ("local.duckdb", "local.duckdb.wal", "metadata.ducklake"):
+    for filename in ("local.duckdb", "local.duckdb.wal"):
         path = base_path / filename
         if path.exists():
             path.unlink()
-    files_dir = base_path / "files"
-    if files_dir.exists():
-        shutil.rmtree(files_dir)
 
 
 def read_table(con, table: str) -> pd.DataFrame:
@@ -83,3 +78,18 @@ def storage_exists(base_dir: str | Path = "data") -> bool:
         return set(TABLES).issubset(existing)
     finally:
         con.close()
+
+
+def empty_model() -> dict[str, pd.DataFrame]:
+    return {
+        "dim_business_capability": pd.DataFrame(
+            columns=["code", "level", "label", "long_name", "parent_code", "path_l1", "path_l2", "path_l3", "path_l4", "path_l5"]
+        ),
+        "dim_application": pd.DataFrame(columns=["application_code", "application_name", "display_name", "entity_code"]),
+        "dim_entity": pd.DataFrame(columns=["entity_code", "label"]),
+        "bridge_application_capability": pd.DataFrame(
+            columns=["application_code", "entity_code", "capability_code", "mapped_level", "source_sheet", "source_row"]
+        ),
+        "capability_closure": pd.DataFrame(columns=["ancestor_code", "descendant_code", "depth"]),
+        "import_warnings": pd.DataFrame(columns=["severity", "source_sheet", "source_row", "message", "raw_value"]),
+    }

@@ -53,7 +53,7 @@ Les cellules Marimo restent fines. La logique métier est dans `src/`:
 - sérialisation JSON de config: `src/config_io.py`
 - parsing et normalisation: `src/transformations.py`
 - calculs de couverture: `src/coverage.py`
-- SQL/storage: `src/ducklake_repository.py`
+- SQL/storage: `src/duckdb_repository.py`
 - visualisations Plotly: `src/charts.py`
 
 Si `marimo/data/` est supprimé, relance `ingest.py` avant d'ouvrir `app.py`.

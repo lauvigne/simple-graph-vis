@@ -22,9 +22,8 @@ def _():
 
     from src.config import DEFAULT_CONFIG
     from src.config_io import load_import_config
-    from src.ducklake_repository import connect, reset_storage, write_model
+    from src.duckdb_repository import connect, empty_model, reset_storage, write_model
     from src.load_excel import load_excel_model, load_workbook
-    from src.sample_data import sample_model
 
     return (
         DEFAULT_CONFIG,
@@ -33,9 +32,9 @@ def _():
         load_excel_model,
         load_import_config,
         load_workbook,
+        empty_model,
         mo,
         reset_storage,
-        sample_model,
         write_model,
     )
 
@@ -107,10 +106,10 @@ def _(
     config_browser,
     excel_browser,
     excel_upload,
+    empty_model,
     load_excel_model,
     load_import_config,
     load_workbook,
-    sample_model,
     source_tabs,
 ):
     selected_path = None
@@ -134,10 +133,12 @@ def _(
         raw_workbook = load_workbook(selected_path, config)
         model = load_excel_model(selected_path, config)
         data_source = str(selected_path)
+        has_selected_file = True
     else:
         raw_workbook = {}
-        model = sample_model()
-        data_source = f"sample (missing file: {selected_path or 'no file selected'})"
+        model = empty_model()
+        data_source = f"empty (missing file: {selected_path or 'no file selected'})"
+        has_selected_file = False
 
     source_paths = set()
     for sheet in (*config.hierarchy_sheets, *config.mapping_sheets, *config.fact_sheets):
@@ -145,7 +146,7 @@ def _(
         if source_value:
             source_paths.add(str(Path(source_value).expanduser().resolve()))
     multi_source_input = len(source_paths) > 1
-    return config_source, data_source, model, multi_source_input, raw_workbook
+    return config_source, data_source, has_selected_file, model, multi_source_input, raw_workbook
 
 
 @app.cell
@@ -173,6 +174,7 @@ def _(
     config_source,
     connect,
     data_source,
+    has_selected_file,
     mo,
     model,
     multi_source_input,
@@ -182,6 +184,9 @@ def _(
     write_model,
 ):
     def _write_cache() -> None:
+        if not has_selected_file:
+            set_status("Cache non écrit: aucun fichier Excel n'a été sélectionné.")
+            return
         cache_path = Path(cache_dir.value).expanduser()
         if not cache_path.is_absolute():
             cache_path = (NOTEBOOK_DIR / cache_path).resolve()
@@ -194,7 +199,7 @@ def _(
             con.close()
         set_status(f"Cache écrit dans {cache_path.resolve()} depuis {data_source} (config: {config_source})")
 
-    if auto_refresh.value and not multi_source_input:
+    if auto_refresh.value and not multi_source_input and has_selected_file:
         _write_cache()
 
     def _refresh_cache(_event: object) -> None:

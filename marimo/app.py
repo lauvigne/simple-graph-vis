@@ -24,8 +24,7 @@ def _():
     from reports.report_mapping import query_candidates
     from reports.report_visuals import build_capability_sunburst, build_mapping_sankey
     from src.coverage import candidate_details
-    from src.ducklake_repository import connect, load_model, storage_exists
-    from src.sample_data import empty_model, sample_model
+    from src.duckdb_repository import connect, empty_model, load_model, storage_exists
 
     return (
         Path,
@@ -38,7 +37,6 @@ def _():
         load_model,
         mo,
         query_candidates,
-        sample_model,
         storage_exists,
     )
 
@@ -88,14 +86,13 @@ def _(
     empty_model,
     is_script_mode,
     load_model,
-    sample_model,
     storage_exists,
 ):
     cache_path = Path(cache_dir.value).expanduser()
     if not cache_path.is_absolute():
         cache_path = (NOTEBOOK_DIR / cache_path).resolve()
     if is_script_mode:
-        model = sample_model()
+        model = empty_model()
         data_source = "sample"
     elif storage_exists(cache_path):
         con = connect(cache_path)

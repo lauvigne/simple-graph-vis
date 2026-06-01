@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from src.ducklake_repository import TABLES
+from src.duckdb_repository import TABLES
 
 
 class RepositoryContractTests(unittest.TestCase):
