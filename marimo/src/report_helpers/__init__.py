@@ -262,12 +262,16 @@ def query_candidate_details(model: dict[str, pd.DataFrame], covered_app: str, co
     return _candidate_details_impl(model, covered_app, covering_app)
 
 
-def build_treemap_data(model: dict[str, pd.DataFrame], metric: str) -> pd.DataFrame:
-    return treemap_data(model, metric)
+def build_treemap_data(
+    model: dict[str, pd.DataFrame],
+    metric: str,
+    normalize_incidents: bool = False,
+) -> pd.DataFrame:
+    return treemap_data(model, metric, normalize_incidents=normalize_incidents)
 
 
-def build_treemap_figure(frame: pd.DataFrame, metric: str):
-    return treemap_figure(frame, metric)
+def build_treemap_figure(frame: pd.DataFrame, metric: str, normalize_incidents: bool = False):
+    return treemap_figure(frame, metric, normalize_incidents=normalize_incidents)
 
 
 def build_capability_sunburst(model: dict[str, pd.DataFrame]):

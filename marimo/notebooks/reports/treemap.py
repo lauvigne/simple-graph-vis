@@ -58,8 +58,18 @@ def _(mo):
         value="applications",
         label="Métrique",
     )
-    mo.vstack([mo.md("**Données**: `data/local.duckdb`"), metric_selector])
-    return metric_selector
+    normalize_incidents = mo.ui.checkbox(
+        value=False,
+        label="Normaliser par le nombre d'applications",
+    )
+    mo.vstack(
+        [
+            mo.md("**Données**: `data/local.duckdb`"),
+            mo.hstack([metric_selector, normalize_incidents]),
+            mo.md("La normalisation ne s'applique qu'à la métrique `incidents`."),
+        ]
+    )
+    return metric_selector, normalize_incidents
 
 
 @app.cell
@@ -96,14 +106,22 @@ def _(data_source, mo):
 
 
 @app.cell
-def _(build_treemap_data, build_treemap_figure, metric_selector, model):
-    treemap_frame = build_treemap_data(model, metric_selector.value)
-    treemap_figure = build_treemap_figure(treemap_frame, metric_selector.value)
+def _(build_treemap_data, build_treemap_figure, metric_selector, model, normalize_incidents):
+    treemap_frame = build_treemap_data(
+        model,
+        metric_selector.value,
+        normalize_incidents=normalize_incidents.value,
+    )
+    treemap_figure = build_treemap_figure(
+        treemap_frame,
+        metric_selector.value,
+        normalize_incidents=normalize_incidents.value,
+    )
     return treemap_figure, treemap_frame
 
 
 @app.cell
-def _(mo, metric_selector, model, treemap_frame):
+def _(mo, metric_selector, model, normalize_incidents, treemap_frame):
     incidents_frame = model.get("fact_incidents")
     incidents_total = 0 if incidents_frame is None or incidents_frame.empty else int(incidents_frame["incident_count"].sum())
     if metric_selector.value == "incidents" and incidents_total == 0:
@@ -116,6 +134,16 @@ def _(mo, metric_selector, model, treemap_frame):
                 ]
             )
         )
+    elif metric_selector.value == "incidents" and normalize_incidents.value:
+        notice = mo.md(
+            "\n".join(
+                [
+                    "## Incidents normalisés",
+                    "",
+                    "La couleur des capacités L3 reflète le ratio `incidents / applications distinctes`.",
+                ]
+            )
+        )
     else:
         notice = mo.md("")
     notice
@@ -124,7 +152,20 @@ def _(mo, metric_selector, model, treemap_frame):
 
 @app.cell
 def _(mo, treemap_figure):
-    treemap_figure
+    legend = mo.md(
+        "\n".join(
+            [
+                "### Légende",
+                "",
+                "- <span style='display:inline-block;width:12px;height:12px;background:#2ca02c;border:1px solid #999;margin-right:6px;vertical-align:middle;'></span> L3 faible",
+                "- <span style='display:inline-block;width:12px;height:12px;background:#4fba74;border:1px solid #999;margin-right:6px;vertical-align:middle;'></span> L3 moyen",
+                "- <span style='display:inline-block;width:12px;height:12px;background:#1f77b4;border:1px solid #999;margin-right:6px;vertical-align:middle;'></span> L3 élevé",
+                "",
+                "Les niveaux L1/L2 restent en couleur neutre pour conserver la lecture de la hiérarchie.",
+            ]
+        )
+    )
+    mo.vstack([treemap_figure, legend])
     return
 
 
@@ -133,11 +174,25 @@ def _(mo, treemap_frame):
     if treemap_frame.empty:
         preview = mo.md("## Agrégats\nAucune capacité à afficher.")
     else:
-        columns = ["kind", "code", "label", "long_name", "metric_value", "tree_weight", "level", "parent_code", "application_code", "entity_code"]
+        columns = [
+            "kind",
+            "code",
+            "label",
+            "long_name",
+            "metric_value",
+            "normalized_metric_value",
+            "application_count",
+            "incident_total",
+            "tree_weight",
+            "level",
+            "parent_code",
+            "application_code",
+            "entity_code",
+        ]
         preview = mo.vstack(
             [
                 mo.md("## Agrégats"),
-                mo.md("`metric_value` = valeur directe, `tree_weight` = valeur cumulée sur la branche. Les lignes de type `application` apparaissent au 4e niveau."),
+                mo.md("`metric_value` = valeur directe, `normalized_metric_value` = ratio incidents/applications sur les L3, `tree_weight` = valeur cumulée sur la branche."),
                 treemap_frame[columns].sort_values(["metric_value", "code"], ascending=[False, True]).head(100),
             ]
         )
