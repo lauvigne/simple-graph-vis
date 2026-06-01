@@ -24,16 +24,13 @@ def _():
         sys.path.insert(0, str(PROJECT_DIR))
 
     import marimo as mo
-    import pandas as pd
 
     from src.coverage import candidate_details
     from src.duckdb_repository import connect, empty_model, load_model, storage_exists
     from src.report_helpers import coverage_candidates_display, covering_applications_detail
 
     return (
-        NOTEBOOK_DIR,
         PROJECT_DIR,
-        Path,
         candidate_details,
         connect,
         coverage_candidates_display,
@@ -41,24 +38,22 @@ def _():
         empty_model,
         load_model,
         mo,
-        pd,
         storage_exists,
     )
 
 
 @app.cell
 def _(mo):
-    mo.md(
+    _intro = mo.md(
         "\n".join(
             [
                 "# Couverture applicative",
                 "",
-                "Le tableau des candidats est cliquable.",
-                "Les listes déroulantes de secours servent à retrouver rapidement une application si besoin.",
+                "Sélectionne une ligne avec la case à cocher à gauche pour afficher le détail.",
             ]
         )
     )
-    return
+    _intro
 
 
 @app.cell
@@ -77,8 +72,8 @@ def _(PROJECT_DIR, connect, empty_model, load_model, storage_exists):
 
 @app.cell
 def _(cache_path, mo):
-    mo.md(f"## Source\n\n- **Données**: `{cache_path}`")
-    return
+    _source = mo.md(f"## Source\n\n- **Données**: `{cache_path}`")
+    _source
 
 
 @app.cell
@@ -89,8 +84,8 @@ def _(mo):
         value="all",
         label="Périmètre",
     )
-    mo.hstack([threshold, scope_mode])
-    return scope_mode, threshold
+    controls = mo.hstack([threshold, scope_mode])
+    controls
 
 
 @app.cell
@@ -101,13 +96,19 @@ def _(coverage_candidates_display, model, scope_mode, threshold):
         entity=None,
         scope_mode=scope_mode.value,
     )
-    return (candidates,)
+    candidates
 
 
 @app.cell
 def _(candidates, mo):
+    _output = None
     if candidates.empty:
-        candidate_table = mo.md("Aucun candidat de couverture ne correspond aux filtres courants.")
+        _output = mo.vstack(
+            [
+                mo.md("## Candidats"),
+                mo.md("Aucun candidat de couverture ne correspond aux filtres courants."),
+            ]
+        )
     else:
         candidate_table = mo.ui.table(
             candidates[
@@ -124,7 +125,6 @@ def _(candidates, mo):
                 ]
             ],
             selection="single",
-            initial_selection=[0],
             pagination=True,
             page_size=25,
             show_data_types=False,
@@ -135,127 +135,79 @@ def _(candidates, mo):
             wrapped_columns=["covered_application_detail", "covering_application_detail"],
             label="Candidats de couverture",
         )
-    candidate_table
-    return candidate_table
+        _output = candidate_table
+    _output
 
 
 @app.cell
-def _(candidates, mo):
-    if candidates.empty:
-        covered_selector = mo.ui.dropdown(
-            options={"Aucune application": ""},
-            value="Aucune application",
-            label="Application couverte",
-            disabled=True,
-            searchable=True,
-            full_width=True,
-        )
-    else:
-        _covered_options = {
-            str(row["covered_application_detail"]): str(row["application_code_covered"])
-            for _, row in candidates[["covered_application_detail", "application_code_covered"]].drop_duplicates().iterrows()
-        }
-        covered_selector = mo.ui.dropdown(
-            options=_covered_options,
-            value=next(iter(_covered_options.keys())),
-            label="Application couverte",
-            searchable=True,
-            full_width=True,
-        )
-    mo.vstack(
-        [
-            mo.md("### Sélecteur de secours - application couverte"),
-            covered_selector,
-        ]
-    )
-    return covered_selector
+def _(candidate_table, candidate_details, candidates, covering_applications_detail, model, mo):
+    _output = None
+    selected = candidate_table.value if candidates.size else None
+    debug_value = type(selected).__name__ if selected is not None else "None"
+    debug_preview = repr(selected)[:500] if selected is not None else "None"
 
+    def _first_scalar(value):
+        if isinstance(value, dict):
+            if not value:
+                return ""
+            return _first_scalar(next(iter(value.values())))
+        if isinstance(value, (list, tuple)):
+            if not value:
+                return ""
+            return _first_scalar(value[0])
+        return value
 
-@app.cell
-def _(candidate_table, candidates, covered_selector, mo):
-    if candidates.empty:
-        covering_selector = mo.ui.dropdown(
-            options={"Aucune couverture": ""},
-            value="Aucune couverture",
-            label="Application couvrante",
-            disabled=True,
-            searchable=True,
-            full_width=True,
-        )
-    else:
-        _selected_rows_covering = candidate_table.value
-        selected_row_covering = _selected_rows_covering.iloc[0] if hasattr(_selected_rows_covering, "iloc") and len(_selected_rows_covering) else None
-        if selected_row_covering is not None:
-            _covered_code = str(selected_row_covering["application_code_covered"])
-        else:
-            _covered_code = covered_selector.value
-            _covered_code = candidates.loc[
-                candidates["covered_application_detail"] == _covered_code, "application_code_covered"
-            ]
-            _covered_code = str(_covered_code.iloc[0]) if len(_covered_code) else ""
+    def _normalize_row(obj):
+        if hasattr(obj, "iloc") and len(obj):
+            obj = obj.iloc[0]
+        if hasattr(obj, "to_dict"):
+            obj = obj.to_dict()
+        if isinstance(obj, dict):
+            return {key: _first_scalar(value) for key, value in obj.items()}
+        return {}
 
-        _covering_options = {
-            str(row["covering_application_detail"]): str(row["application_code_covering"])
-            for _, row in candidates[candidates["application_code_covered"] == _covered_code][
-                ["covering_application_detail", "application_code_covering"]
-            ]
-            .drop_duplicates()
-            .iterrows()
-        }
-        if not _covering_options:
-            _covering_options = {"Aucune couverture": ""}
-        covering_selector = mo.ui.dropdown(
-            options=_covering_options,
-            value=next(iter(_covering_options.keys())),
-            label="Application couvrante",
-            searchable=True,
-            full_width=True,
-        )
-    mo.vstack(
-        [
-            mo.md("### Sélecteur de secours - application couvrante"),
-            covering_selector,
-        ]
-    )
-    return covering_selector
-
-
-@app.cell
-def _(candidate_details, candidates, covering_selector, covering_applications_detail, mo, model, covered_selector, candidate_table):
-    if candidates.empty:
-        detail = mo.md("## Détail\n\nAucun candidat de couverture ne correspond aux filtres courants.")
-    else:
-        _selected_rows_detail = candidate_table.value
-        selected_row_detail = _selected_rows_detail.iloc[0] if hasattr(_selected_rows_detail, "iloc") and len(_selected_rows_detail) else None
-        if selected_row_detail is not None:
-            _covered_code = str(selected_row_detail["application_code_covered"])
-            _covering_code = str(selected_row_detail["application_code_covering"])
-            _selected_covering_label = str(selected_row_detail["covering_application_detail"])
-        else:
-            _covered_code = str(
-                candidates.loc[candidates["covered_application_detail"] == covered_selector.value, "application_code_covered"].iloc[0]
+    if selected is None:
+        if candidates.empty:
+            _output = mo.vstack(
+                [
+                    mo.md("## Détail"),
+                    mo.md("Aucun candidat de couverture."),
+                ]
             )
-            _covering_code = str(
-                candidates.loc[
-                    (candidates["application_code_covered"] == _covered_code)
-                    & (candidates["covering_application_detail"] == covering_selector.value),
-                    "application_code_covering",
-                ].iloc[0]
+        else:
+            _output = mo.vstack(
+                [
+                    mo.md("## Détail"),
+                    mo.md("Coche une ligne dans le tableau pour afficher le détail."),
+                    mo.md(f"- **Sélection brute**: `{debug_value}`"),
+                ]
             )
-            _selected_covering_label = covering_selector.value
+    else:
+        row = _normalize_row(selected) or _normalize_row(candidates.iloc[0])
 
-        pair_details = candidate_details(model, _covered_code, _covering_code)
-        coverers = covering_applications_detail(model, _covered_code)
+        covered_code = str(row.get("application_code_covered", ""))
+        covering_code = str(row.get("application_code_covering", ""))
+        pair_details = candidate_details(model, covered_code, covering_code)
+        coverers = covering_applications_detail(model, covered_code)
 
-        detail = mo.vstack(
+        coverage_value = _first_scalar(row.get("coverage", 0.0))
+        try:
+            coverage_percent = f"{float(coverage_value):.0%}"
+        except Exception:  # pragma: no cover - debug fallback
+            coverage_percent = f"{coverage_value}"
+
+        _output = mo.vstack(
             [
+                mo.md("## Détail de couverture"),
                 mo.md(
                     "\n".join(
                         [
-                            "## Détail de couverture",
-                            "",
-                            f"- **Application couverte**: `{covered_selector.value}`",
-                            f"- **Application couvrante**: `{_selected_covering_label}`",
+                            f"- **Sélection brute**: `{debug_value}`",
+                            f"- **Aperçu sélection**: `{debug_preview}`",
+                            f"- **Application couverte**: `{row.get('covered_application_detail', '')}`",
+                            f"- **Application couvrante**: `{row.get('covering_application_detail', '')}`",
+                            f"- **Couverture**: `{coverage_percent}`",
+                            f"- **Type**: `{row.get('type', '')}`",
                         ]
                     )
                 ),
@@ -269,57 +221,7 @@ def _(candidate_details, candidates, covering_selector, covering_applications_de
                 pair_details["extra"] if not pair_details["extra"].empty else mo.md("Aucune capacité en trop."),
             ]
         )
-    detail
-    return
-
-
-@app.cell
-def _(candidates, mo):
-    if candidates.empty:
-        summary = mo.md(
-            "\n".join(
-                [
-                    "## Synthèse",
-                    "",
-                    "- **Candidats**: 0",
-                    "- Aucun recouvrement trouvé avec les filtres actuels.",
-                ]
-            )
-        )
-    else:
-        summary = mo.md(
-            "\n".join(
-                [
-                    "## Synthèse",
-                    "",
-                    f"- **Candidats**: {len(candidates)}",
-                    f"- **Applications couvertes distinctes**: {candidates['application_code_covered'].nunique()}",
-                    f"- **Applications couvrantes distinctes**: {candidates['application_code_covering'].nunique()}",
-                    "- **Sélection**: clique une ligne du tableau pour afficher le détail.",
-                ]
-            )
-        )
-    summary
-    return
-
-
-@app.cell
-def _(candidate_table, mo):
-    mo.vstack(
-        [
-            mo.md(
-                "\n".join(
-                    [
-                        "## Candidats",
-                        "",
-                        "Clique une ligne du tableau pour afficher le détail en dessous.",
-                    ]
-                )
-            ),
-            candidate_table,
-        ]
-    )
-    return
+    _output
 
 
 if __name__ == "__main__":
