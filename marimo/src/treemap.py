@@ -55,12 +55,16 @@ def treemap_figure(frame: pd.DataFrame, metric: str):
     if frame.empty:
         return go.Figure().update_layout(title=f"No data available for {metric}")
 
-    colors = frame["kind"].map(
-        {
-            "capability": "rgba(44, 160, 44, 0.82)",
-            "application": "rgba(31, 119, 180, 0.82)",
-        }
-    ).fillna("rgba(128, 128, 128, 0.82)")
+    color_values = pd.to_numeric(frame["tree_weight"], errors="coerce").fillna(0).astype(float)
+    color_min = float(color_values.min()) if not color_values.empty else 0.0
+    color_max = float(color_values.max()) if not color_values.empty else 1.0
+    if color_max <= color_min:
+        color_max = color_min + 1.0
+    color_scale = [
+        [0.0, "#2ca02c"],
+        [0.5, "#4fba74"],
+        [1.0, "#1f77b4"],
+    ]
 
     fig = go.Figure(
         go.Treemap(
@@ -71,7 +75,20 @@ def treemap_figure(frame: pd.DataFrame, metric: str):
             branchvalues="total",
             maxdepth=3,
             sort=False,
-            marker=dict(colors=colors, line=dict(width=0.3, color="rgba(90, 90, 90, 0.3)")),
+            marker=dict(
+                colors=color_values,
+                cmin=color_min,
+                cmax=color_max,
+                colorscale=color_scale,
+                showscale=True,
+                colorbar=dict(
+                    title="Poids",
+                    thickness=16,
+                    len=0.75,
+                    tickformat=",.0f",
+                ),
+                line=dict(width=0.3, color="rgba(90, 90, 90, 0.3)"),
+            ),
             customdata=frame[["kind", "level", "metric_value", "tree_weight", "hover_label"]],
             hovertemplate=(
                 "<b>%{customdata[4]}</b><br>"
