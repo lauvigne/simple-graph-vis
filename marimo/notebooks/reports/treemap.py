@@ -41,6 +41,10 @@ def _(mo):
             "Ce notebook affiche un treemap des capacités métiers avec deux métriques:",
             "- nombre d'applications",
             "- nombre d'incidents",
+            "",
+            "Le treemap descend de L1 > L2 > L3 puis affiche les applications en 4e niveau lors du zoom.",
+            "",
+            "Les applications ne sont affichées qu'à partir des capacités de niveau 3.",
         ]
     )
     mo.md(intro)
@@ -49,21 +53,18 @@ def _(mo):
 
 @app.cell
 def _(mo):
-    cache_dir = mo.ui.text(value="data", label="Dossier data")
     metric_selector = mo.ui.dropdown(
         options=["applications", "incidents"],
         value="applications",
         label="Métrique",
     )
-    mo.vstack([cache_dir, metric_selector])
-    return cache_dir, metric_selector
+    mo.vstack([mo.md("**Données**: `data/local.duckdb`"), metric_selector])
+    return metric_selector
 
 
 @app.cell
-def _(NOTEBOOK_DIR, Path, cache_dir, connect, empty_model, load_model, metric_selector, storage_exists):
-    cache_path = Path(cache_dir.value).expanduser()
-    if not cache_path.is_absolute():
-        cache_path = (PROJECT_DIR / cache_path).resolve()
+def _(PROJECT_DIR, connect, empty_model, load_model, metric_selector, storage_exists):
+    cache_path = (PROJECT_DIR / "data").resolve()
 
     if storage_exists(cache_path):
         conn = connect(cache_path)
@@ -87,7 +88,7 @@ def _(data_source, mo):
                 "## Source",
                 f"- **Données**: `{data_source}`",
                 "",
-                "Le treemap utilise la hiérarchie complète L1 > L2 > L3. Les valeurs exactes sont affichées en infobulle et dans le tableau sous le graphique.",
+                "Le treemap utilise la hiérarchie complète L1 > L2 > L3 et affiche les applications au 4e niveau lors du zoom. Les valeurs exactes sont affichées en infobulle et dans le tableau sous le graphique.",
             ]
         )
     )
@@ -132,11 +133,11 @@ def _(mo, treemap_frame):
     if treemap_frame.empty:
         preview = mo.md("## Agrégats\nAucune capacité à afficher.")
     else:
-        columns = ["code", "label", "long_name", "metric_value", "tree_weight", "level", "parent_code"]
+        columns = ["kind", "code", "label", "long_name", "metric_value", "tree_weight", "level", "parent_code", "application_code", "entity_code"]
         preview = mo.vstack(
             [
                 mo.md("## Agrégats"),
-                mo.md("`metric_value` = valeur directe, `tree_weight` = valeur cumulée sur la branche."),
+                mo.md("`metric_value` = valeur directe, `tree_weight` = valeur cumulée sur la branche. Les lignes de type `application` apparaissent au 4e niveau."),
                 treemap_frame[columns].sort_values(["metric_value", "code"], ascending=[False, True]).head(100),
             ]
         )
