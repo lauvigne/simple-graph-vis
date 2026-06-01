@@ -73,8 +73,9 @@ def _(mo):
     threshold = mo.ui.slider(start=0.1, stop=1.0, step=0.05, value=0.8, label="Seuil de couverture")
     scope_mode = mo.ui.dropdown(options=["all", "withinEntity", "crossEntity"], value="all", label="Périmètre")
     show_plots = mo.ui.switch(value=False, label="Afficher les graphiques avancés")
-    mo.vstack([cache_dir, threshold, scope_mode, show_plots])
-    return cache_dir, scope_mode, show_plots, threshold
+    focus_graphs = mo.ui.switch(value=False, label="Focus graphique")
+    mo.vstack([cache_dir, threshold, scope_mode, show_plots, focus_graphs])
+    return cache_dir, focus_graphs, scope_mode, show_plots, threshold
 
 
 @app.cell
@@ -128,7 +129,7 @@ def _(data_source, mo):
 
 
 @app.cell
-def _(data_source, mo, model):
+def _(data_source, focus_graphs, mo, model):
     fact_tables = {name: frame for name, frame in model.items() if name.startswith("fact_")}
     counts = {
         "Source": data_source,
@@ -152,43 +153,70 @@ def _(data_source, mo, model):
 
 
 @app.cell
-def _(capabilities_table, model):
+def _(capabilities_table, focus_graphs, mo, model):
     capability_rows = capabilities_table(model)
-    capability_rows
+    capability_view = capability_rows if not focus_graphs.value else mo.md("")
+    capability_view
     return
 
 
 @app.cell
-def _(duplicate_capabilities, model):
+def _(duplicate_capabilities, focus_graphs, mo, model):
     duplicate_rows = duplicate_capabilities(model)
-    duplicate_rows
+    duplicate_view = duplicate_rows if not focus_graphs.value else mo.md("")
+    duplicate_view
     return
 
 
 @app.cell
-def _(model, query_candidates, scope_mode, threshold):
+def _(focus_graphs, mo, model, query_candidates, scope_mode, threshold):
     candidates = query_candidates(model, threshold=threshold.value, entity=None, scope_mode=scope_mode.value)
-    candidates
+    candidates_view = candidates if not focus_graphs.value else mo.md("")
+    candidates_view
     return
 
 
 @app.cell
-def _(build_capability_sunburst, build_mapping_sankey, mo, model, show_plots):
+def _(build_capability_sunburst, build_mapping_sankey, focus_graphs, mo, model, show_plots):
     if show_plots.value:
         capability_sunburst = build_capability_sunburst(model)
         mapping_sankey = build_mapping_sankey(model)
-        result = mo.ui.tabs(
-            {
-                "Sunburst": capability_sunburst,
-                "Sankey": mapping_sankey,
-            },
-            lazy=True,
-            value="Sunburst",
-            label="Graphiques",
-        )
+        if focus_graphs.value:
+            graphs_view = mo.vstack(
+                [
+                    mo.md(
+                        "\n".join(
+                            [
+                                "## Focus graphique",
+                                "",
+                                "Mode lecture large activé: les tableaux sont masqués pour laisser un maximum de place aux diagrammes.",
+                            ]
+                        )
+                    ),
+                    mo.ui.tabs(
+                        {
+                            "Sunburst": capability_sunburst,
+                            "Sankey": mapping_sankey,
+                        },
+                        lazy=True,
+                        value="Sunburst",
+                        label="Graphiques",
+                    ),
+                ]
+            )
+        else:
+            graphs_view = mo.ui.tabs(
+                {
+                    "Sunburst": capability_sunburst,
+                    "Sankey": mapping_sankey,
+                },
+                lazy=True,
+                value="Sunburst",
+                label="Graphiques",
+            )
     else:
-        result = mo.md("Les graphiques avancés sont masqués. Active `Afficher les graphiques avancés` pour les ouvrir dans des onglets séparés.")
-    result
+        graphs_view = mo.md("Les graphiques avancés sont masqués. Active `Afficher les graphiques avancés` pour les ouvrir dans des onglets séparés.")
+    graphs_view
     return
 
 
