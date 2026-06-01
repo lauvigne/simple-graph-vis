@@ -220,5 +220,26 @@ def _(build_capability_sunburst, build_mapping_sankey, focus_graphs, mo, model, 
     return
 
 
+@app.cell
+def _(mo, show_plots):
+    if show_plots.value:
+        legend = mo.md(
+            "\n".join(
+                [
+                    "## Légende des couleurs",
+                    "",
+                    "- **Bleu**: applications",
+                    "- **Vert**: capacités métiers",
+                    "",
+                    "Les couleurs distinguent les types de nœuds. Le Sankey n’a pas de légende native vraiment lisible, donc on l’explicite ici.",
+                ]
+            )
+        )
+    else:
+        legend = mo.md("")
+    legend
+    return
+
+
 if __name__ == "__main__":
     app.run()
