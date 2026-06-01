@@ -15,20 +15,20 @@ app = marimo.App(width="full")
 
 @app.cell
 def _():
+    import sys
     from pathlib import Path
+
+    NOTEBOOK_DIR = Path(__file__).resolve().parent
+    PROJECT_DIR = NOTEBOOK_DIR.parent.parent
+    if str(PROJECT_DIR) not in sys.path:
+        sys.path.insert(0, str(PROJECT_DIR))
 
     import marimo as mo
     import pandas as pd
 
     from src.duckdb_repository import connect, load_model, read_table, storage_exists
 
-    return Path, connect, load_model, mo, pd, read_table, storage_exists
-
-
-@app.cell
-def _(Path):
-    NOTEBOOK_DIR = Path(__file__).resolve().parent
-    return (NOTEBOOK_DIR,)
+    return NOTEBOOK_DIR, PROJECT_DIR, Path, connect, load_model, mo, pd, read_table, storage_exists
 
 
 @app.cell

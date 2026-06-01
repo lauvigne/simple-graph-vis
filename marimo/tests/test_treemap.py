@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from reports.report_treemap import build_treemap_data
+from src.report_helpers import build_treemap_data
 from src.sample_data import empty_model, sample_model
 
 

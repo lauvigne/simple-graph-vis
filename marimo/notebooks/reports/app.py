@@ -16,7 +16,13 @@ app = marimo.App(width="full")
 
 @app.cell
 def _():
+    import sys
     from pathlib import Path
+
+    NOTEBOOK_DIR = Path(__file__).resolve().parent
+    PROJECT_DIR = NOTEBOOK_DIR.parent.parent
+    if str(PROJECT_DIR) not in sys.path:
+        sys.path.insert(0, str(PROJECT_DIR))
 
     import marimo as mo
 
@@ -25,6 +31,8 @@ def _():
     from src.duckdb_repository import connect, empty_model, load_model, storage_exists
 
     return (
+        NOTEBOOK_DIR,
+        PROJECT_DIR,
         Path,
         build_capability_sunburst,
         build_mapping_sankey,
@@ -37,12 +45,6 @@ def _():
         query_candidates,
         storage_exists,
     )
-
-
-@app.cell
-def _(Path):
-    NOTEBOOK_DIR = Path(__file__).resolve().parent
-    return (NOTEBOOK_DIR,)
 
 
 @app.cell
@@ -89,7 +91,7 @@ def _(
 ):
     cache_path = Path(cache_dir.value).expanduser()
     if not cache_path.is_absolute():
-        cache_path = (NOTEBOOK_DIR / cache_path).resolve()
+        cache_path = (PROJECT_DIR / cache_path).resolve()
     if is_script_mode:
         model = empty_model()
         data_source = "sample"

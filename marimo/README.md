@@ -1,12 +1,19 @@
 # Marimo exploration dataviz
 
-Prototype Python/Marimo pour explorer les mappings applicatifs. L'ingestion Excel est séparée des rapports:
+Prototype Python/Marimo pour explorer les mappings applicatifs.
 
-- `ingest.py` charge l'Excel et réécrit `marimo/data/`
-- `app.py` lit uniquement les tables DuckDB présentes dans `marimo/data/`
-- `treemap.py` affiche un treemap des capacités métiers par applications ou incidents
-- `ingest.py` peut aussi charger un JSON de configuration pour paramétrer les sources et les colonnes
-- `config_builder.py` sert à éditer et sauvegarder le JSON de paramétrage dans Marimo
+## Arborescence
+
+- `notebooks/reports/` contient les notebooks d'exploitation
+- `notebooks/admin/` contient les notebooks de chargement, debug et paramétrage
+- `src/report_helpers/` contient les helpers réutilisés par les notebooks
+
+L'ingestion Excel est séparée des rapports:
+
+- `notebooks/admin/ingest.py` charge l'Excel et réécrit `data/local.duckdb`
+- `notebooks/reports/app.py` lit uniquement les tables DuckDB présentes dans `data/`
+- `notebooks/reports/treemap.py` affiche un treemap des capacités métiers par applications ou incidents
+- `notebooks/admin/config_builder.py` sert à éditer et sauvegarder le JSON de paramétrage dans Marimo
 
 ## Installation
 
@@ -20,20 +27,20 @@ pip install -r requirements.txt
 ## Utilisation
 
 ```bash
-marimo run ingest.py
+marimo run notebooks/admin/ingest.py
 ```
 
 Puis:
 
 ```bash
-marimo run app.py
+marimo run notebooks/reports/app.py
 ```
 
 Pour un contrôle non interactif:
 
 ```bash
-python ingest.py
-python app.py
+python notebooks/admin/ingest.py
+python notebooks/reports/app.py
 python -m unittest discover -s tests
 ```
 
@@ -44,6 +51,20 @@ La cible est un simple fichier DuckDB local:
 - `marimo/data/local.duckdb`
 
 Le répertoire `marimo/data/` contient aussi les fichiers temporaires éventuellement créés par l’ingestion.
+
+## Tables DuckDB
+
+Les notebooks de reporting lisent les tables suivantes dans `data/local.duckdb`:
+
+- `dim_business_capability`: hiérarchie des capacités métiers, avec `code`, `level`, `label`, `long_name`, `parent_code` et les chemins `path_l1` à `path_l5`
+- `dim_application`: référentiel des applications, avec `application_code`, `application_name`, `display_name`, `entity_code`
+- `dim_entity`: référentiel des entités
+- `bridge_application_capability`: mappings application -> capacité
+- `capability_closure`: fermeture hiérarchique des capacités, utile pour les agrégations et les calculs de couverture
+- `import_warnings`: warnings ou erreurs rencontrés pendant l’import
+- `fact_incidents` si la source incidents est présente dans la configuration
+
+Les notebooks n’accèdent pas directement à Excel une fois le cache DuckDB écrit.
 
 ## Principe
 
@@ -56,4 +77,4 @@ Les cellules Marimo restent fines. La logique métier est dans `src/`:
 - SQL/storage: `src/duckdb_repository.py`
 - visualisations Plotly: `src/charts.py`
 
-Si `marimo/data/` est supprimé, relance `ingest.py` avant d'ouvrir `app.py`.
+Si `data/` est supprimé, relance `notebooks/admin/ingest.py` avant d'ouvrir les notebooks de reporting.

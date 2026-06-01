@@ -16,20 +16,20 @@ app = marimo.App(width="full")
 
 @app.cell
 def _():
+    import sys
     from pathlib import Path
+
+    NOTEBOOK_DIR = Path(__file__).resolve().parent
+    PROJECT_DIR = NOTEBOOK_DIR.parent.parent
+    if str(PROJECT_DIR) not in sys.path:
+        sys.path.insert(0, str(PROJECT_DIR))
 
     import marimo as mo
 
     from src.report_helpers import build_treemap_data, build_treemap_figure
     from src.duckdb_repository import connect, empty_model, load_model, storage_exists
 
-    return Path, build_treemap_data, build_treemap_figure, connect, empty_model, load_model, mo, storage_exists
-
-
-@app.cell
-def _(Path):
-    NOTEBOOK_DIR = Path(__file__).resolve().parent
-    return (NOTEBOOK_DIR,)
+    return NOTEBOOK_DIR, PROJECT_DIR, Path, build_treemap_data, build_treemap_figure, connect, empty_model, load_model, mo, storage_exists
 
 
 @app.cell
@@ -63,7 +63,7 @@ def _(mo):
 def _(NOTEBOOK_DIR, Path, cache_dir, connect, empty_model, load_model, metric_selector, storage_exists):
     cache_path = Path(cache_dir.value).expanduser()
     if not cache_path.is_absolute():
-        cache_path = (NOTEBOOK_DIR / cache_path).resolve()
+        cache_path = (PROJECT_DIR / cache_path).resolve()
 
     if storage_exists(cache_path):
         conn = connect(cache_path)

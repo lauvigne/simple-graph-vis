@@ -16,7 +16,13 @@ app = marimo.App(width="full")
 
 @app.cell
 def _():
+    import sys
     from pathlib import Path
+
+    NOTEBOOK_DIR = Path(__file__).resolve().parent
+    PROJECT_DIR = NOTEBOOK_DIR.parent.parent
+    if str(PROJECT_DIR) not in sys.path:
+        sys.path.insert(0, str(PROJECT_DIR))
 
     import marimo as mo
 
@@ -26,6 +32,8 @@ def _():
     from src.load_excel import load_excel_model, load_workbook
 
     return (
+        NOTEBOOK_DIR,
+        PROJECT_DIR,
         DEFAULT_CONFIG,
         Path,
         connect,
@@ -37,12 +45,6 @@ def _():
         reset_storage,
         write_model,
     )
-
-
-@app.cell
-def _(Path):
-    NOTEBOOK_DIR = Path(__file__).resolve().parent
-    return (NOTEBOOK_DIR,)
 
 
 @app.cell

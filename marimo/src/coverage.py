@@ -10,6 +10,30 @@ def application_scopes(model: dict[str, pd.DataFrame]) -> pd.DataFrame:
     return scopes[["application_code", "entity_code", "descendant_code"]].drop_duplicates()
 
 
+def covering_applications_map(
+    model: dict[str, pd.DataFrame],
+    application_codes: list[str] | None = None,
+) -> pd.DataFrame:
+    scopes = application_scopes(model)
+    if scopes.empty:
+        return pd.DataFrame(columns=["application_code", "covering_applications"])
+    target_scopes = scopes
+    if application_codes:
+        target_scopes = target_scopes[target_scopes["application_code"].isin(application_codes)]
+    overlaps = target_scopes.merge(scopes, on="descendant_code", suffixes=("_covered", "_covering"))
+    overlaps = overlaps[overlaps["application_code_covered"] != overlaps["application_code_covering"]]
+    overlaps["covering_application"] = overlaps.apply(
+        lambda row: _format_application_ref(row["entity_code_covering"], row["application_code_covering"]), axis=1
+    )
+    result = (
+        overlaps.groupby("application_code_covered")["covering_application"]
+        .apply(lambda values: sorted(dict.fromkeys(str(value) for value in values if str(value).strip())))
+        .reset_index()
+        .rename(columns={"application_code_covered": "application_code", "covering_application": "covering_applications"})
+    )
+    return result
+
+
 def coverage_candidates(
     model: dict[str, pd.DataFrame],
     threshold: float = 0.8,
@@ -61,3 +85,31 @@ def candidate_details(model: dict[str, pd.DataFrame], covered_app: str, covering
         "missing": capabilities[capabilities["code"].isin(covered - covering)],
         "extra": capabilities[capabilities["code"].isin(covering - covered)],
     }
+
+
+def candidate_covering_applications(model: dict[str, pd.DataFrame], application_code: str) -> list[str]:
+    mapping = covering_applications_map(model, application_codes=[application_code])
+    if mapping.empty:
+        return []
+    covering_apps = mapping.loc[mapping["application_code"] == application_code, "covering_applications"]
+    if covering_apps.empty:
+        return []
+    return [str(value).split("#", 1)[-1] for value in covering_apps.iloc[0]]
+
+
+def applications_by_capabilities(model: dict[str, pd.DataFrame], capability_codes: list[str] | None = None) -> pd.DataFrame:
+    bridge = model.get("bridge_application_capability", pd.DataFrame())
+    if bridge.empty:
+        return pd.DataFrame(columns=["application_code", "entity_code", "capability_code"])
+    frame = bridge.copy()
+    if capability_codes:
+        frame = frame[frame["capability_code"].isin(capability_codes)]
+    return frame.drop_duplicates(subset=["application_code", "entity_code", "capability_code"])
+
+
+def _format_application_ref(entity_code: object, application_code: object) -> str:
+    entity_text = str(entity_code or "").strip()
+    application_text = str(application_code or "").strip()
+    if entity_text and application_text:
+        return f"{entity_text}#{application_text}"
+    return application_text or entity_text or ""

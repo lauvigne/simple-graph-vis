@@ -24,6 +24,8 @@ def _():
     from src.config_io import import_config_from_dict, import_config_to_dict, save_import_config
 
     return (
+        NOTEBOOK_DIR,
+        PROJECT_DIR,
         DEFAULT_CONFIG,
         Path,
         import_config_from_dict,
@@ -32,12 +34,6 @@ def _():
         mo,
         save_import_config,
     )
-
-
-@app.cell
-def _(Path):
-    NOTEBOOK_DIR = Path(__file__).resolve().parent
-    return (NOTEBOOK_DIR,)
 
 
 @app.cell
