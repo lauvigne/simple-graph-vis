@@ -152,24 +152,18 @@ def _(
 @app.cell
 def _(mo, multi_source_input):
     purge_cache = mo.ui.checkbox(
-        value=False if multi_source_input else True,
+        value=False,
         label="Purger le cache avant écriture",
         disabled=multi_source_input,
     )
-    auto_refresh = mo.ui.checkbox(
-        value=False if multi_source_input else True,
-        label="Écrire automatiquement le cache au chargement",
-        disabled=multi_source_input,
-    )
-    mo.vstack([purge_cache, auto_refresh])
-    return auto_refresh, purge_cache
+    mo.vstack([purge_cache])
+    return purge_cache
 
 
 @app.cell
 def _(
     NOTEBOOK_DIR,
     Path,
-    auto_refresh,
     cache_dir,
     config_source,
     connect,
@@ -198,9 +192,6 @@ def _(
         finally:
             con.close()
         set_status(f"Cache écrit dans {cache_path.resolve()} depuis {data_source} (config: {config_source})")
-
-    if auto_refresh.value and not multi_source_input and has_selected_file:
-        _write_cache()
 
     def _refresh_cache(_event: object) -> None:
         _write_cache()
