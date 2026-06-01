@@ -55,16 +55,27 @@ def treemap_figure(frame: pd.DataFrame, metric: str):
     if frame.empty:
         return go.Figure().update_layout(title=f"No data available for {metric}")
 
-    color_values = pd.to_numeric(frame["tree_weight"], errors="coerce").fillna(0).astype(float)
-    color_min = float(color_values.min()) if not color_values.empty else 0.0
-    color_max = float(color_values.max()) if not color_values.empty else 1.0
-    if color_max <= color_min:
-        color_max = color_min + 1.0
-    color_scale = [
-        [0.0, "#2ca02c"],
-        [0.5, "#4fba74"],
-        [1.0, "#1f77b4"],
-    ]
+    level_3_values = pd.to_numeric(frame.loc[frame["level"] == 3, "tree_weight"], errors="coerce").fillna(0).astype(float)
+    level_3_min = float(level_3_values.min()) if not level_3_values.empty else 0.0
+    level_3_max = float(level_3_values.max()) if not level_3_values.empty else 1.0
+    if level_3_max <= level_3_min:
+        level_3_max = level_3_min + 1.0
+    colors = []
+    for row in frame.itertuples(index=False):
+        level = int(getattr(row, "level", 0) or 0)
+        kind = str(getattr(row, "kind", "") or "")
+        weight = float(getattr(row, "tree_weight", 0.0) or 0.0)
+        if level == 3:
+            colors.append(_blend_hex_color("#2ca02c", "#1f77b4", (weight - level_3_min) / (level_3_max - level_3_min)))
+        elif kind == "capability":
+            if level <= 1:
+                colors.append("#dff0df")
+            elif level == 2:
+                colors.append("#bfe6bf")
+            else:
+                colors.append("#f0f0f0")
+        else:
+            colors.append("#d9e6f2")
 
     fig = go.Figure(
         go.Treemap(
@@ -76,17 +87,7 @@ def treemap_figure(frame: pd.DataFrame, metric: str):
             maxdepth=3,
             sort=False,
             marker=dict(
-                colors=color_values,
-                cmin=color_min,
-                cmax=color_max,
-                colorscale=color_scale,
-                showscale=True,
-                colorbar=dict(
-                    title="Poids",
-                    thickness=16,
-                    len=0.75,
-                    tickformat=",.0f",
-                ),
+                colors=colors,
                 line=dict(width=0.3, color="rgba(90, 90, 90, 0.3)"),
             ),
             customdata=frame[["kind", "level", "metric_value", "tree_weight", "hover_label"]],
@@ -275,3 +276,19 @@ def _format_capability_tooltip(code: object, long_name: object) -> str:
 
 def _empty_treemap_frame() -> pd.DataFrame:
     return pd.DataFrame(columns=TREEMAP_COLUMNS)
+
+
+def _blend_hex_color(start: str, end: str, ratio: float) -> str:
+    ratio = max(0.0, min(1.0, float(ratio)))
+
+    def _parse_hex(value: str) -> tuple[int, int, int]:
+        value = value.lstrip("#")
+        return tuple(int(value[index : index + 2], 16) for index in (0, 2, 4))
+
+    start_rgb = _parse_hex(start)
+    end_rgb = _parse_hex(end)
+    blended = tuple(
+        int(round(start_channel + (end_channel - start_channel) * ratio))
+        for start_channel, end_channel in zip(start_rgb, end_rgb, strict=True)
+    )
+    return "#{:02x}{:02x}{:02x}".format(*blended)
