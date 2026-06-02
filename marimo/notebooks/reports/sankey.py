@@ -75,17 +75,14 @@ def _(mo):
 
 @app.cell
 def _(mo):
-    cache_dir = mo.ui.text(value="data", label="Dossier cache DuckDB")
     search_text = mo.ui.text(value="", label="Recherche code ou libellé")
-    mo.vstack([cache_dir, search_text])
-    return cache_dir, search_text
+    mo.vstack([mo.md("**Données**: `data/local.duckdb`"), search_text])
+    return search_text
 
 
 @app.cell
-def _(NOTEBOOK_DIR, Path, cache_dir, connect, empty_model, is_script_mode, load_model, storage_exists):
-    cache_path = Path(cache_dir.value).expanduser()
-    if not cache_path.is_absolute():
-        cache_path = (PROJECT_DIR / cache_path).resolve()
+def _(PROJECT_DIR, connect, empty_model, is_script_mode, load_model, storage_exists):
+    cache_path = (PROJECT_DIR / "data").resolve()
     if is_script_mode:
         model = empty_model()
         data_source = "sample"

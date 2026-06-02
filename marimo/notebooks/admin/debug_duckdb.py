@@ -47,16 +47,9 @@ def _(mo):
 
 @app.cell
 def _(mo):
-    cache_browser = mo.ui.file_browser(
-        initial_path=".",
-        selection_mode="directory",
-        multiple=False,
-        restrict_navigation=False,
-        label="Répertoire DuckDB",
-    )
     preview_limit = mo.ui.slider(10, 500, value=100, step=10, label="Nombre de lignes à afficher")
-    mo.vstack([cache_browser, preview_limit])
-    return cache_browser, preview_limit
+    mo.vstack([mo.md("**Données**: `data/local.duckdb`"), preview_limit])
+    return preview_limit
 
 
 @app.cell
@@ -67,20 +60,14 @@ def _(mo):
 
 @app.cell
 def _(
-    NOTEBOOK_DIR,
-    Path,
-    cache_browser,
+    PROJECT_DIR,
     connect,
     load_model,
     mo,
     refresh_count,
     storage_exists,
 ):
-    cache_path = NOTEBOOK_DIR / "data"
-    if cache_browser.value:
-        cache_path = Path(cache_browser.path()).expanduser()
-        if not cache_path.is_absolute():
-            cache_path = (NOTEBOOK_DIR / cache_path).resolve()
+    cache_path = (PROJECT_DIR / "data").resolve()
 
     db_path = cache_path / "local.duckdb"
     status = "Cache introuvable"

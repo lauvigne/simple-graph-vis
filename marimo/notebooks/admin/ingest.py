@@ -89,9 +89,8 @@ def _(mo):
         restrict_navigation=False,
         label="Config JSON (optionnelle)",
     )
-    cache_dir = mo.ui.text(value="data", label="Dossier cache")
-    mo.vstack([source_tabs, config_browser, cache_dir])
-    return cache_dir, config_browser, excel_browser, excel_upload, source_tabs
+    mo.vstack([source_tabs, config_browser])
+    return config_browser, excel_browser, excel_upload, source_tabs
 
 
 @app.cell
@@ -164,9 +163,9 @@ def _(mo, multi_source_input):
 
 @app.cell
 def _(
+    PROJECT_DIR,
     NOTEBOOK_DIR,
     Path,
-    cache_dir,
     config_source,
     connect,
     data_source,
@@ -183,9 +182,7 @@ def _(
         if not has_selected_file:
             set_status("Cache non écrit: aucun fichier Excel n'a été sélectionné.")
             return
-        cache_path = Path(cache_dir.value).expanduser()
-        if not cache_path.is_absolute():
-            cache_path = (NOTEBOOK_DIR / cache_path).resolve()
+        cache_path = (PROJECT_DIR / "data").resolve()
         if purge_cache.value and not multi_source_input:
             reset_storage(cache_path)
         con = connect(cache_path)
