@@ -265,9 +265,19 @@ def query_candidate_details(model: dict[str, pd.DataFrame], covered_app: str, co
 def build_treemap_data(
     model: dict[str, pd.DataFrame],
     metric: str,
+    entity_code: str | None = None,
+    incident_years: list[int] | None = None,
+    incident_types: list[int] | None = None,
     normalize_incidents: bool = False,
 ) -> pd.DataFrame:
-    return treemap_data(model, metric, normalize_incidents=normalize_incidents)
+    return treemap_data(
+        model,
+        metric,
+        entity_code=entity_code,
+        incident_years=incident_years,
+        incident_types=incident_types,
+        normalize_incidents=normalize_incidents,
+    )
 
 
 def build_treemap_figure(frame: pd.DataFrame, metric: str, normalize_incidents: bool = False):

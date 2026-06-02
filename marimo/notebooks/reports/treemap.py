@@ -34,21 +34,21 @@ def _():
 
 @app.cell
 def _(mo):
-    intro = "\n".join(
-        [
-            "# Treemap des business capabilities",
-            "",
-            "Ce notebook affiche un treemap des capacités métiers avec deux métriques:",
-            "- nombre d'applications",
-            "- nombre d'incidents",
-            "",
-            "Le treemap descend de L1 > L2 > L3 puis affiche les applications en 4e niveau lors du zoom.",
-            "",
-            "Les applications ne sont affichées qu'à partir des capacités de niveau 3.",
-        ]
+    intro = mo.md(
+        "\n".join(
+            [
+                "# Treemap des business capabilities",
+                "",
+                "Ce notebook affiche un treemap des capacités métiers avec deux métriques:",
+                "- nombre d'applications",
+                "- nombre d'incidents",
+                "",
+                "Le treemap descend de L1 > L2 > L3 puis affiche les applications en 4e niveau lors du zoom.",
+                "Les capacités L3 affichent `code - nom long` quand c'est lisible, avec un tooltip toujours détaillé.",
+            ]
+        )
     )
-    mo.md(intro)
-    return
+    intro
 
 
 @app.cell
@@ -58,24 +58,12 @@ def _(mo):
         value="applications",
         label="Métrique",
     )
-    normalize_incidents = mo.ui.checkbox(
-        value=False,
-        label="Normaliser par le nombre d'applications",
-    )
-    mo.vstack(
-        [
-            mo.md("**Données**: `data/local.duckdb`"),
-            mo.hstack([metric_selector, normalize_incidents]),
-            mo.md("La normalisation ne s'applique qu'à la métrique `incidents`."),
-        ]
-    )
-    return metric_selector, normalize_incidents
+    return (metric_selector,)
 
 
 @app.cell
-def _(PROJECT_DIR, connect, empty_model, load_model, metric_selector, storage_exists):
+def _(PROJECT_DIR, connect, empty_model, load_model, storage_exists):
     cache_path = (PROJECT_DIR / "data").resolve()
-
     if storage_exists(cache_path):
         conn = connect(cache_path)
         try:
@@ -86,30 +74,114 @@ def _(PROJECT_DIR, connect, empty_model, load_model, metric_selector, storage_ex
     else:
         model = empty_model()
         data_source = "sample"
-
     return cache_path, data_source, model
 
 
 @app.cell
-def _(data_source, mo):
-    mo.md(
-        "\n".join(
-            [
-                "## Source",
-                f"- **Données**: `{data_source}`",
-                "",
-                "Le treemap utilise la hiérarchie complète L1 > L2 > L3 et affiche les applications au 4e niveau lors du zoom. Les valeurs exactes sont affichées en infobulle et dans le tableau sous le graphique.",
-            ]
-        )
-    )
-    return
+def _(model, mo):
+    entity_lookup = {"Toutes les entités": None}
+    entity_labels = ["Toutes les entités"]
+    entities = model.get("dim_entity")
+    if entities is not None and not entities.empty and "entity_code" in entities.columns:
+        entity_rows = entities[["entity_code", "label"]].copy()
+        entity_rows["entity_code"] = entity_rows["entity_code"].fillna("").astype(str).str.strip()
+        entity_rows["label"] = entity_rows["label"].fillna("").astype(str).str.strip()
+        entity_rows.loc[entity_rows["label"] == "", "label"] = entity_rows.loc[entity_rows["label"] == "", "entity_code"]
+        entity_rows = entity_rows[entity_rows["entity_code"] != ""].sort_values(["label", "entity_code"]).reset_index(drop=True)
+    for _, row in entity_rows.iterrows():
+        option_label = f"{row['label']} ({row['entity_code']})"
+        entity_lookup[option_label] = str(row["entity_code"])
+        entity_labels.append(option_label)
+    entity_selector = mo.ui.dropdown(options=entity_labels, value="Toutes les entités", label="Entité")
+    return entity_lookup, entity_selector
 
 
 @app.cell
-def _(build_treemap_data, build_treemap_figure, metric_selector, model, normalize_incidents):
+def _(metric_selector, model, mo):
+    incident_years_available: list[int] = []
+    incidents = model.get("fact_incidents")
+    if incidents is not None and not incidents.empty and "year" in incidents.columns:
+        incident_years_available = (
+            incidents["year"]
+            .dropna()
+            .astype(int)
+            .sort_values()
+            .drop_duplicates()
+            .tolist()
+        )
+
+    incident_years = mo.ui.multiselect(
+        options=incident_years_available,
+        value=incident_years_available,
+        label="Années d'incident",
+    )
+    incident_type_p1 = mo.ui.checkbox(value=True, label="P1")
+    incident_type_p2 = mo.ui.checkbox(value=True, label="P2")
+    normalize_incidents = mo.ui.checkbox(
+        value=False,
+        label="Normaliser par le nombre d'applications",
+        disabled=metric_selector.value != "incidents",
+    )
+    return incident_years, incident_type_p1, incident_type_p2, normalize_incidents
+
+
+@app.cell
+def _(entity_selector, incident_type_p1, incident_type_p2, incident_years, metric_selector, mo, normalize_incidents):
+    if metric_selector.value == "incidents":
+        controls = mo.vstack(
+            [
+                mo.hstack([metric_selector, entity_selector, normalize_incidents, incident_years, incident_type_p1, incident_type_p2])
+            ]
+        )
+    else:
+        controls = mo.hstack([metric_selector, entity_selector])
+    controls
+
+
+# @app.cell
+# def _(data_source, mo):
+#     mo.md(
+#         "\n".join(
+#             [
+#                 "## Source",
+#                 f"- **Données**: `{data_source}`",
+#                 "",
+#                 "Le treemap utilise la hiérarchie complète L1 > L2 > L3 et affiche les applications au 4e niveau lors du zoom.",
+#             ]
+#         )
+#     )
+#     return
+
+
+@app.cell
+def _(
+    build_treemap_data,
+    build_treemap_figure,
+    entity_lookup,
+    entity_selector,
+    incident_type_p1,
+    incident_type_p2,
+    incident_years,
+    metric_selector,
+    model,
+    normalize_incidents,
+):
+    selected_entity_code = entity_lookup.get(entity_selector.value)
+    selected_incident_years = list(incident_years.value) if metric_selector.value == "incidents" else None
+    selected_incident_types: list[int] | None = None
+    if metric_selector.value == "incidents":
+        selected_incident_types = []
+        if incident_type_p1.value:
+            selected_incident_types.append(1)
+        if incident_type_p2.value:
+            selected_incident_types.append(2)
+
     treemap_frame = build_treemap_data(
         model,
         metric_selector.value,
+        entity_code=selected_entity_code,
+        incident_years=selected_incident_years,
+        incident_types=selected_incident_types,
         normalize_incidents=normalize_incidents.value,
     )
     treemap_figure = build_treemap_figure(
@@ -121,7 +193,7 @@ def _(build_treemap_data, build_treemap_figure, metric_selector, model, normaliz
 
 
 @app.cell
-def _(mo, metric_selector, model, normalize_incidents, treemap_frame):
+def _(metric_selector, model, mo, normalize_incidents):
     incidents_frame = model.get("fact_incidents")
     incidents_total = 0 if incidents_frame is None or incidents_frame.empty else int(incidents_frame["incident_count"].sum())
     if metric_selector.value == "incidents" and incidents_total == 0:
@@ -129,7 +201,6 @@ def _(mo, metric_selector, model, normalize_incidents, treemap_frame):
             "\n".join(
                 [
                     "## Incidents",
-                    "",
                     "Aucune donnée d'incidents n'est disponible dans le cache. La métrique incidents est donc vide.",
                 ]
             )
@@ -139,7 +210,6 @@ def _(mo, metric_selector, model, normalize_incidents, treemap_frame):
             "\n".join(
                 [
                     "## Incidents normalisés",
-                    "",
                     "La couleur des capacités L3 reflète le ratio `incidents / applications distinctes`.",
                 ]
             )
@@ -147,15 +217,19 @@ def _(mo, metric_selector, model, normalize_incidents, treemap_frame):
     else:
         notice = mo.md("")
     notice
-    return
 
 
 @app.cell
-def _(mo, treemap_figure):
+def _(metric_selector, mo, normalize_incidents, treemap_figure):
+    if metric_selector.value == "incidents" and normalize_incidents.value:
+        legend_title = "### Légende ratio L3"
+    else:
+        legend_title = "### Légende"
+
     legend = mo.md(
         "\n".join(
             [
-                "### Légende",
+                legend_title,
                 "",
                 "- <span style='display:inline-block;width:12px;height:12px;background:#2ca02c;border:1px solid #999;margin-right:6px;vertical-align:middle;'></span> L3 faible",
                 "- <span style='display:inline-block;width:12px;height:12px;background:#4fba74;border:1px solid #999;margin-right:6px;vertical-align:middle;'></span> L3 moyen",
@@ -167,38 +241,6 @@ def _(mo, treemap_figure):
     )
     mo.vstack([treemap_figure, legend])
     return
-
-
-@app.cell
-def _(mo, treemap_frame):
-    if treemap_frame.empty:
-        preview = mo.md("## Agrégats\nAucune capacité à afficher.")
-    else:
-        columns = [
-            "kind",
-            "code",
-            "label",
-            "long_name",
-            "metric_value",
-            "normalized_metric_value",
-            "application_count",
-            "incident_total",
-            "tree_weight",
-            "level",
-            "parent_code",
-            "application_code",
-            "entity_code",
-        ]
-        preview = mo.vstack(
-            [
-                mo.md("## Agrégats"),
-                mo.md("`metric_value` = valeur directe, `normalized_metric_value` = ratio incidents/applications sur les L3, `tree_weight` = valeur cumulée sur la branche."),
-                treemap_frame[columns].sort_values(["metric_value", "code"], ascending=[False, True]).head(100),
-            ]
-        )
-    preview
-    return
-
 
 if __name__ == "__main__":
     app.run()

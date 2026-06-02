@@ -27,9 +27,22 @@ TREEMAP_COLUMNS = [
 ]
 
 
-def treemap_data(model: dict[str, pd.DataFrame], metric: str, normalize_incidents: bool = False) -> pd.DataFrame:
+def treemap_data(
+    model: dict[str, pd.DataFrame],
+    metric: str,
+    entity_code: str | None = None,
+    incident_years: list[int] | None = None,
+    incident_types: list[int] | None = None,
+    normalize_incidents: bool = False,
+) -> pd.DataFrame:
     capabilities = _capability_frame(model)
-    applications = _application_frame(model, metric)
+    applications = _application_frame(
+        model,
+        metric,
+        entity_code=entity_code,
+        incident_years=incident_years,
+        incident_types=incident_types,
+    )
     if capabilities.empty or applications.empty:
         return _empty_treemap_frame()
 
@@ -48,7 +61,7 @@ def treemap_data(model: dict[str, pd.DataFrame], metric: str, normalize_incident
     frame["normalized_metric_value"] = pd.to_numeric(frame["normalized_metric_value"], errors="coerce").fillna(0).astype(float)
     frame["application_count"] = pd.to_numeric(frame["application_count"], errors="coerce").fillna(0).astype(float)
     frame["incident_total"] = pd.to_numeric(frame["incident_total"], errors="coerce").fillna(0).astype(float)
-    frame["display_label"] = frame["display_label"].fillna(frame["label"]).astype(str)
+    frame["display_label"] = frame.apply(_format_display_label, axis=1)
     frame["hover_label"] = frame["hover_label"].fillna(frame["display_label"]).astype(str)
     return frame.sort_values(["kind", "level", "code", "application_code"], na_position="last").reset_index(drop=True)
 
@@ -157,7 +170,13 @@ def _capability_frame(model: dict[str, pd.DataFrame]) -> pd.DataFrame:
     return capabilities[capabilities["code"].str.strip() != ""].reset_index(drop=True)
 
 
-def _application_frame(model: dict[str, pd.DataFrame], metric: str) -> pd.DataFrame:
+def _application_frame(
+    model: dict[str, pd.DataFrame],
+    metric: str,
+    entity_code: str | None = None,
+    incident_years: list[int] | None = None,
+    incident_types: list[int] | None = None,
+) -> pd.DataFrame:
     bridge = model.get("bridge_application_capability", pd.DataFrame()).copy()
     if bridge.empty:
         return pd.DataFrame(columns=["application_code", "entity_code", "application_name", "display_name", "capability_code", "metric_value"])
@@ -173,6 +192,12 @@ def _application_frame(model: dict[str, pd.DataFrame], metric: str) -> pd.DataFr
         incidents = model.get("fact_incidents", pd.DataFrame()).copy()
         if incidents.empty:
             return pd.DataFrame(columns=["application_code", "entity_code", "application_name", "display_name", "capability_code", "metric_value"])
+        if incident_years is not None:
+            incidents = incidents[incidents["year"].isin(incident_years)]
+        if incident_types is not None:
+            incidents = incidents[incidents["incident_type"].isin(incident_types)]
+        if incidents.empty:
+            return pd.DataFrame(columns=["application_code", "entity_code", "application_name", "display_name", "capability_code", "metric_value"])
         incidents["incident_count"] = pd.to_numeric(incidents["incident_count"], errors="coerce").fillna(0)
         incident_totals = incidents.groupby("application_code", as_index=False)["incident_count"].sum()
         incident_totals = incident_totals.rename(columns={"incident_count": "metric_value"})
@@ -181,6 +206,8 @@ def _application_frame(model: dict[str, pd.DataFrame], metric: str) -> pd.DataFr
         applications["metric_value"] = 1.0
 
     frame = bridge.merge(applications, on=["application_code", "entity_code"], how="inner")
+    if entity_code:
+        frame = frame[frame["entity_code"] == entity_code]
     frame["metric_value"] = pd.to_numeric(frame["metric_value"], errors="coerce").fillna(0)
     frame["capability_code"] = frame["capability_code"].fillna("").astype(str)
     frame = frame[frame["capability_code"].str.strip() != ""]
@@ -264,6 +291,8 @@ def _build_nodes(
     for code, row in sorted(capability_by_code.items(), key=lambda item: (int(item[1]["level"]), item[0])):
         parent_code = str(row.get("parent_code") or "").strip()
         ratio = capability_ratios.get(code, {})
+        level = int(row.get("level") or 0)
+        long_name = str(row.get("long_name") or row.get("label") or "").strip()
         rows.append(
             {
                 "id": f"cap::{code}",
@@ -272,8 +301,8 @@ def _build_nodes(
                 "parent_code": parent_code,
                 "label": code,
                 "display_label": code,
-                "long_name": str(row.get("long_name") or ""),
-                "level": int(row.get("level") or 0),
+                "long_name": long_name,
+                "level": level,
                 "kind": "capability",
                 "entity_code": "",
                 "application_code": "",
@@ -333,6 +362,21 @@ def _format_capability_tooltip(code: object, long_name: object) -> str:
     if code_text and long_name_text:
         return f"{code_text}#{long_name_text}"
     return code_text or long_name_text or ""
+
+
+def _format_display_label(row: pd.Series) -> str:
+    kind = str(row.get("kind") or "").strip()
+    code_text = str(row.get("code") or "").strip()
+    long_name_text = str(row.get("long_name") or "").strip()
+    level = int(row.get("level") or 0)
+    tree_weight = float(row.get("tree_weight") or 0.0)
+    if kind != "capability":
+        return str(row.get("display_label") or row.get("label") or code_text).strip() or code_text
+    if kind == "capability" and level == 3 and long_name_text:
+        label = f"{code_text} - {long_name_text}"
+        if tree_weight >= 2.0 or len(label) <= 72:
+            return label
+    return code_text
 
 
 def _empty_treemap_frame() -> pd.DataFrame:
