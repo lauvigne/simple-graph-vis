@@ -23,7 +23,7 @@ if [[ $# -ne 1 ]]; then
   exit 1
 fi
 
-SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEST_DIR="$1"
 
 mkdir -p "$DEST_DIR"
@@ -32,6 +32,8 @@ rsync -a --delete \
   --exclude '.venv/' \
   --exclude '__pycache__/' \
   --exclude '.pytest_cache/' \
+  "$SOURCE_DIR/_inputs" \
+  "$SOURCE_DIR/configs" \
   "$SOURCE_DIR/data" \
   "$SOURCE_DIR/src" \
   "$SOURCE_DIR/notebooks" \
