@@ -37,6 +37,56 @@ Puis:
 marimo run notebooks/reports/app.py
 ```
 
+## Export pour Windows
+
+Pour déposer un bundle exécutable sur un partage SharePoint ou un répertoire externe:
+
+```bash
+bash scripts/export_for_windows.sh "/chemin/vers/le/sharepoint"
+```
+
+Le script copie:
+
+- `data/`
+- `src/`
+- `notebooks/`
+- `README.md`
+- `requirements.txt`
+
+## Lancement sous Windows
+
+Depuis PowerShell, dans le répertoire copié:
+
+```powershell
+python -m venv .venv
+.\\.venv\\Scripts\\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+marimo run notebooks\\reports\\app.py
+```
+
+Si PowerShell bloque l'activation du venv:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+```
+
+Pour les autres notebooks de reporting:
+
+```powershell
+marimo run notebooks\\reports\\treemap.py
+marimo run notebooks\\reports\\sankey.py
+marimo run notebooks\\reports\\sankey_hierarchy.py
+```
+
+Pour les notebooks d’administration:
+
+```powershell
+marimo run notebooks\\admin\\ingest.py
+marimo run notebooks\\admin\\debug_duckdb.py
+marimo run notebooks\\admin\\config_builder.py
+```
+
 Pour un contrôle non interactif:
 
 ```bash
